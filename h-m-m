@@ -687,7 +687,7 @@ function calculate_children_y(&$mm,$pid)
 function calculate_height_shift(&$mm, $id, $shift = 0)
 {
 	$mm['nodes'][$id]['yo'] += $shift;
-	$shift += max(0, round( ($mm['nodes'][$id]['lh'] - $mm['nodes'][$id]['clh'])/2 - 0.5 ));
+	$shift += max(0, floor( (($mm['nodes'][$id]['lh'] - $mm['nodes'][$id]['clh']))/2 - 0.9 ));
 
 	foreach ($mm['nodes'][$id]['children'] as $cid)
 		if (!$mm['nodes'][$id]['collapsed'])
@@ -983,6 +983,8 @@ function toggle_numbers(&$mm)
 	if ($mm['active_node'] <= $mm['root'])
 		return;
 
+	$padlen = count($mm['nodes'][ $mm['nodes'][$mm['active_node']]['parent'] ]['children']) > 9 ? 2 : 1;
+
 	$ordered= false;
 	$i=1;
 	foreach ($mm['nodes'][ $mm['nodes'][$mm['active_node']]['parent'] ]['children'] as $cid)
@@ -993,7 +995,7 @@ function toggle_numbers(&$mm)
 		if ($ordered)
 			$mm['nodes'][$cid]['title'] = mb_ereg_replace('^\d+\. *','',$mm['nodes'][$cid]['title']);
 		else
-			$mm['nodes'][$cid]['title'] = ($i++).'. '.$mm['nodes'][$cid]['title'];
+			$mm['nodes'][$cid]['title'] = str_pad($i++, $padlen, '0', STR_PAD_LEFT).'. '.$mm['nodes'][$cid]['title'];
 
 	$mm['modified'] = true;
 	build_map($mm);
@@ -2646,15 +2648,22 @@ function display(&$mm, $force_center = false)
 				.reset_color
 				.mb_substr($line, $x2)
 			;
-		else // styling the codes when the node is not active
-			$line =
-				mb_ereg_replace
-				(
-					'\b(.\d)\. '
-					,dim_on.'\\1. '.dim_off
-					,$line
-				)
-			;
+
+		// styling the codes when the node is not active
+		// it used to be the 'else' of the above condition
+		// because it resets the bold attribute of the active
+		// node. However, it think losing the bold attribute
+		// is better than leaving the numbers unformatted 
+		// in the same line as the active node.
+
+		$line =
+			mb_ereg_replace
+			(
+				'\b(.?\d+)\. '
+				,dim_on.'\\1. '.dim_off
+				,$line
+			)
+		;
 
 		// styling the search results
 
