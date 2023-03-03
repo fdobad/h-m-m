@@ -4,7 +4,8 @@
 /**
  * h-m-m
  *
- * h-m-m (pronounced like the interjection "hmm") is a simple, fast, keyboard-centric terminal-based tool for working with mind maps.
+ * h-m-m (pronounced like the interjection "hmm") is a simple, fast,
+ * keyboard-centric terminal-based tool for working with mind maps.
  *
  * @author  Nader K. Rad <me@nader.pm>
  * @link    https://github.com/nadrad/h-m-m
@@ -131,6 +132,7 @@ if (isset($mm['arguments']['debug_config']))
 $clipboard                  = '';
 
 
+$mm['show_logo']            = true;
 $mm['changes']              = [];
 $mm['change_active_node']   = [];
 $mm['change_index']         = 0;
@@ -313,6 +315,7 @@ function shutdown()
 		."\033[?25h" // enabling the text cursor
 	;
 	system("stty sane");
+	change_window_title('');
 	exit;
 }
 
@@ -482,6 +485,9 @@ function load_file(&$mm)
 		load_empty_map($mm);
 		return;
 	}
+
+	change_window_title($mm['filename']);
+
 
 	// checking to see how many first-level nodes we have
 	$first_level_nodes = [];
@@ -1826,6 +1832,41 @@ function export_html_node(&$mm, $parent_id)
 
 
 // }}}
+// {{{ export text
+
+function export_text(&$mm)
+{
+	if (empty($mm['filename']))
+	{
+		message($mm, "Can't export the map when it doesn't have a file name yet. Save it first.");
+		return;
+	}
+
+	$file = fopen($mm['filename'].'.txt', "w");
+
+	if ($file===false)
+	{
+		message($mm, 'ERROR! Could not save the file');
+		return;
+	}
+
+	fwrite
+	(
+		$file
+		,implode("\n",$mm['map'])
+	);
+
+	fclose($file);
+
+	message($mm, 'Exported as '.$mm['filename'].'.txt');
+	$filename = getenv('PWD').'/'.basename($mm['filename']).'.txt';
+	copy_to_clipboard($mm, $filename);
+
+}
+
+
+
+// }}}
 // {{{ save
 
 function save(&$mm, $new_name = false)
@@ -1840,7 +1881,7 @@ function save(&$mm, $new_name = false)
 		if (empty($mm['filename']) && $mm['nodes'][ $mm['root_id'] ]['title'] != 'root')
 			$path .= preg_replace('/[^a-zA-Z0-9]/','-',$mm['nodes'][ $mm['root_id'] ]['title']);
 
-		$new_name = magic_readline($mm, $path. ( $mm['filename'] ?? '') );
+		$new_name = magic_readline($mm, (empty($mm['filename']) ? $path : $mm['filename'] ) );
 
 		if ($new_name === false)
 		{
@@ -1865,6 +1906,8 @@ function save(&$mm, $new_name = false)
 		return;
 	}
 
+	change_window_title($mm['filename']);
+
 	$file = fopen($mm['filename'], "w");
 
 	$mm['modified'] = false;
@@ -1876,7 +1919,7 @@ function save(&$mm, $new_name = false)
 		return;
 	}
 
-	fwrite($file, map_to_list($mm, $mm['root_id']));
+	fwrite($file, map_to_list($mm, $mm['root_id']) . "\n");
 	fclose($file);
 
 	display($mm);
@@ -2277,6 +2320,8 @@ function get_from_clipboard(&$mm)
 
 function load_empty_map(&$mm)
 {
+	change_window_title('new mind map');
+
 	if (isset($mm['nodes']))
 		unset($mm['nodes']);
 
@@ -2585,6 +2630,7 @@ function display(&$mm, $force_center = false)
 
 	$blank = str_repeat(' ', $mm['terminal_width']);
 
+
 	// calculating the coordinates of the active node
 
 	$x1 =
@@ -2734,7 +2780,23 @@ function display(&$mm, $force_center = false)
 		$output .= $line;
 	}
 
+
 	echo reset_page.reset_color.$output;
+
+
+	// showing the logo :)
+
+	if ($mm['show_logo'])
+	{
+		$ll = $mm['terminal_width'] - 14;
+		echo "\033[1;${ll}f\033[38;5;237m ┌────────────┐ ";
+		echo "\033[2;${ll}f\033[38;5;237m │     ╭─ m   │ ";
+		echo "\033[3;${ll}f\033[38;5;237m │ h ──┤      │ ";
+		echo "\033[4;${ll}f\033[38;5;237m │     ╰─── m │ ";
+		echo "\033[5;${ll}f\033[38;5;237m └────────────┘ ";
+		$mm['show_logo'] = false;
+	}
+
 }
 
 
@@ -2900,6 +2962,7 @@ function monitor_key_presses(&$mm)
 			case 'W':       change_max_node_width($mm, 1/width_change_factor); break;
 
 			case 'x':       export_html($mm); break;
+			case 'X':       export_text($mm); break;
 
 			case 'y':       yank_node($mm); break;
 			case 'Y':       yank_node($mm, true); break;
@@ -2946,6 +3009,15 @@ function monitor_key_presses(&$mm)
 }
 
 // }}}
+// {{{ change window title
+
+function change_window_title($title)
+{
+	echo "\033]2;".( $title == '' ? ' ' : 'h-m-m -- '.str_replace('.hmm','',basename($title)) )."\007";
+}
+
+
+// }}}
 // {{{ main
 
 check_required_extensions();
@@ -2957,9 +3029,6 @@ load_file($mm);
 collapse_all($mm);
 collapse_level($mm, $mm['initial_depth'], true);
 
-build_map($mm);
-center_active_node($mm);
-display($mm);
 monitor_key_presses($mm);
 
 // }}}
