@@ -98,6 +98,12 @@ foreach ($e as $k=>$v)
 config($mm, 'max_parent_node_width', 25);
 config($mm, 'max_leaf_node_width',   55);
 config($mm, 'line_spacing',          1);
+config($mm, 'align_levels',          0);
+
+config($mm, 'symbol1',               "✓");
+config($mm, 'symbol2',               "✗");
+
+config($mm, 'show_hidden',           0);
 
 config($mm, 'initial_depth',         1);
 config($mm, 'center_lock',           false);
@@ -158,9 +164,9 @@ const left_padding          = 1;
 const conn_left_len         = 6;
 const conn_right_len        = 4;
 
-$mm['conn_left']            = str_repeat('─', conn_left_len );
 $mm['conn_right']           = str_repeat('─', conn_right_len - 2 );
-$mm['conn_single']          = str_repeat('─', conn_left_len + conn_right_len - 1 );
+$mm['conn_left']            = str_repeat('─', conn_left_len -2 );
+$mm['conn_single']          = str_repeat('─', conn_left_len + conn_right_len - 3 );
 
 const vertical_offset       = 4;
 
@@ -173,6 +179,8 @@ const ctrl_c                = "\003";
 const ctrl_r                = "\022";
 const ctrl_f                = "\006";
 const ctrl_v                = "\026";
+const ctrl_h                = "\010";
+const ctrl_o                = "\017";
 
 const arr_down              = "\033\133\102";
 const arr_right             = "\033\133\103";
@@ -457,23 +465,16 @@ function map_to_list(&$mm, $id, $exclude_parent = false, $base = 0)
 
 function load_file(&$mm)
 {
-	global $argv;
+	$mm['filename'] = $mm['arguments']['filename'] ?? '';
 
-	if (!isset($argv[1]))
-	{
-		load_empty_map($mm);
-		return;
-	}
-
-	if (isset($mm['arguments']['filename']))
-		$mm['filename'] = $mm['arguments']['filename'];
+	if (isset($mm['arguments']['filename']) && file_exists($mm['filename']))
+		$lines = file($mm['filename'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 	else
 	{
 		load_empty_map($mm);
 		return;
 	}
 
-	$lines = file($argv[1], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
 	// starting from 2 instead of 1, in case the files doesn't have
 	// a single root and we have to inject one. leaving "1" empty
@@ -526,14 +527,29 @@ function load_file(&$mm)
 
 
 // }}}
+// {{{ list visible children
+
+function list_visible_children(&$mm, $id)
+{
+	$mm['nodes'][$id]['visible_children'] = [];
+	foreach ($mm['nodes'][$id]['children'] as $cid)
+		if (substr($mm['nodes'][$cid]['title'],0,9) != '[HIDDEN] ')
+			$mm['nodes'][$id]['visible_children'][] = $cid;
+
+	foreach ($mm['nodes'][$id]['children'] as $cid)
+		list_visible_children($mm, $cid);
+}
+
+
+// }}}
 // {{{ calculate w, x, lh, and clh
 
 function calculate_x_and_lh(&$mm, $id)
 {
 	$node = $mm['nodes'][$id];
 
-	$mm['nodes'][$id]['x']
-		= $mm['nodes'][ $node['parent'] ]['x']
+	$mm['nodes'][$id]['x'] =
+		$mm['nodes'][ $node['parent'] ]['x']
 		+ $mm['nodes'][ $node['parent'] ]['w']
 		+ conn_left_len
 		+ conn_right_len
@@ -546,9 +562,17 @@ function calculate_x_and_lh(&$mm, $id)
 		)
 	;
 
-	$max_width
-		=  ($node['is_leaf'] || ($node['collapsed'] ?? false)) * $mm['max_leaf_node_width']
-		+ !($node['is_leaf'] || ($node['collapsed'] ?? false)) * $mm['max_parent_node_width'];
+	$at_the_end =
+		$node['is_leaf']
+		|| ($node['collapsed'] ?? false)
+		|| count($node['visible_children']) == 0
+	;
+
+	$max_width =
+		$at_the_end
+		? $mm['max_leaf_node_width']
+		: $mm['max_parent_node_width']
+	;
 
 	if ( mb_strlen($node['title']) > width_tolerance * $max_width )
 	{
@@ -577,15 +601,52 @@ function calculate_x_and_lh(&$mm, $id)
 	;
 
 	$mm['nodes'][$id]['clh'] = 0;
-	if (($mm['nodes'][$id]['collapsed'] ?? false) || $mm['nodes'][$id]['is_leaf'])
+	if ($at_the_end)
 		$mm['nodes'][$id]['clh'] = $mm['nodes'][$id]['lh'];
 
-	foreach ($node['children'] as $cid)
+	foreach ($node['visible_children'] as $cid)
 	{
 		calculate_x_and_lh($mm, $cid);
 		$mm['nodes'][$id]['clh'] += $mm['nodes'][$cid]['clh'];
 	}
 }
+
+
+// }}}
+// {{{ calculate aligned x
+
+function calculate_aligned_x(&$mm,$id,$x)
+{
+	$mm['map_width'] =
+		max
+		(
+			  $mm['map_width']
+			, $mm['nodes'][$id]['x']
+			+ $mm['nodes'][$id]['w']
+		)
+	;
+
+	$max_width = 0;
+	foreach ($mm['nodes'][$id]['visible_children'] as $cid)
+	{
+		$max_width = max( $max_width, $mm['nodes'][$cid]['w'] );
+		$mm['nodes'][$cid]['x'] = $x;
+	}
+
+	foreach ($mm['nodes'][$id]['visible_children'] as $cid)
+		calculate_aligned_x
+		(
+			$mm
+			,$cid
+			,$max_width
+			+$x
+			+conn_left_len
+			+conn_right_len
+			+1
+		)
+	;
+}
+
 
 
 // }}}
@@ -600,7 +661,7 @@ function calculate_h(&$mm)
 
 		foreach ($mm['nodes'] as $id=>$node)
 
-			if ($node['is_leaf'] || ($node['collapsed'] ?? false))
+			if ($node['is_leaf'] || $node['visible_children']==0 || ($node['collapsed'] ?? false))
 
 				$mm['nodes'][$id]['h']
 					= $mm['line_spacing']
@@ -612,7 +673,7 @@ function calculate_h(&$mm)
 				$h = 0;
 				$unready = false;
 
-				foreach ($node['children'] as $cid)
+				foreach ($node['visible_children'] as $cid)
 					if ($mm['nodes'][$cid]['h']>=0)
 						$h += $mm['nodes'][$cid]['h'];
 					else
@@ -631,8 +692,6 @@ function calculate_h(&$mm)
 							, $node['lh']
 							+ $mm['line_spacing']
 						)
-						+ ($mm['nodes'][$id]['parent'] == $mm['root_id'])
-						* $mm['line_spacing'];
 					;
 			}
 	}
@@ -666,7 +725,7 @@ function calculate_children_y(&$mm,$pid)
 	;
 
 	if (!($mm['nodes'][$pid]['collapsed'] ?? false))
-		foreach ($mm['nodes'][$pid]['children'] as $cid)
+		foreach ($mm['nodes'][$pid]['visible_children'] as $cid)
 		{
 			$mm['nodes'][$cid]['y'] = $y;
 
@@ -695,7 +754,7 @@ function calculate_height_shift(&$mm, $id, $shift = 0)
 	$mm['nodes'][$id]['yo'] += $shift;
 	$shift += max(0, floor( (($mm['nodes'][$id]['lh'] - $mm['nodes'][$id]['clh']))/2 - 0.9 ));
 
-	foreach ($mm['nodes'][$id]['children'] as $cid)
+	foreach ($mm['nodes'][$id]['visible_children'] as $cid)
 		if (!$mm['nodes'][$id]['collapsed'])
 			calculate_height_shift($mm, $cid, $shift);
 }
@@ -708,37 +767,83 @@ function draw_connections(&$mm, $id)
 {
 	$node = $mm['nodes'][$id];
 
-	// if there's no child
-	if ($node['is_leaf']) return;
+	$num_visible_children = count($mm['nodes'][$id]['visible_children']);
+	$num_children         = count($mm['nodes'][$id]['children']);
+	$has_hidden_children  = $num_visible_children != $num_children;
+
 
 	// if the node is collapsed
-	if ($node['collapsed'] ?? false)
+	if ( ($node['collapsed'] ?? false) && ($num_children > 0) )
 	{
-		mmput
-		(
-			 $mm
-			,$node['x'] + $node['w']+1
-			,$node['y'] + $node['yo']
-			,' [+]'
-		);
+		if ($num_visible_children == $num_children)
+			mmput
+			(
+				 $mm
+				,$node['x'] + $node['w']+1
+				,$node['y'] + $node['yo']
+				,' [+]'
+			);
+		else
+			mmput
+			(
+				 $mm
+				,$node['x'] + $node['w']+1
+				,$node['y'] + $node['yo']
+				,'─╫─ [+]'
+			);
 		return;
 	}
 
-	// if there's only one child in the same y coordinate
-	if (count($node['children'] ?? [])==1)
+	// the easy part...
+	if ($num_visible_children==0)
 	{
-		$child_id = $node['children'][ array_key_first( $node['children'] ) ];
+		if ($num_children>0)
+			mmput
+			(
+				 $mm
+				,$node['x'] + $node['w'] + 1
+				,round( $node['y']  + $node['yo']  ) + round( ($node['lh'] ) / 2 - 0.6 )
+				,'─╫─'
+			);
+		return;
+	}
+
+
+	// if there's only one child: the same y coordinate
+	if ($num_visible_children==1)
+	{
+		$child_id = $node['visible_children'][ array_key_first( $node['visible_children'] ) ];
 		$child = $mm['nodes'][ $child_id ];
 
 		$y1  = round( $node['y']  + $node['yo']  ) + round( ($node['lh'] ) / 2 - 0.6 );
 		$y2  = round( $child['y'] + $child['yo'] ) + round( ($child['lh']) / 2 - 0.6 );
 
+		$x =
+			$mm['align_levels']
+			? $node['x'] + $node['w'] - 2
+			: $child['x'] - conn_left_len - conn_right_len
+		;
+
+		$line =
+			(
+				$has_hidden_children
+				? '─╫'
+				: '──'
+			)
+			.
+			(
+				$mm['align_levels']
+				? str_repeat('─', $child['x'] - $node['x'] - $node['w'] + 1)
+				: $mm['conn_single']
+			)
+		;
+
 		mmput
 		(
 			 $mm
-			,$child['x'] - conn_left_len - conn_right_len
+			,$x
 			,min($y1,$y2)
-			,$mm['conn_single']
+			,$line
 		);
 
 		if (abs(min($y1,$y2)-$y2)>0)
@@ -779,7 +884,7 @@ function draw_connections(&$mm, $id)
 	$top = $mm['map_height'];
 	$top_child = 0;
 
-	foreach ($node['children'] as $cid)
+	foreach ($node['visible_children'] as $cid)
 	{
 		if ($mm['nodes'][$cid]['y'] + $mm['nodes'][$cid]['yo'] > $bottom)
 		{
@@ -796,12 +901,32 @@ function draw_connections(&$mm, $id)
 
 	$middle  = round($node['y']+$node['yo']) + round($node['lh']/2-0.6);
 
+	$x =
+		$mm['align_levels']
+		? $node['x'] + $node['w'] - 2
+		: $mm['nodes'][$top_child]['x'] - conn_left_len - conn_right_len
+	;
+
+	$line =
+		(
+			$has_hidden_children
+			? '─╫'
+			: '──'
+		)
+		.
+		(
+			$mm['align_levels']
+			? str_repeat('─', $mm['nodes'][$top_child]['x'] - $node['x'] - $node['w'] - 2 )
+			: $mm['conn_left']
+		)
+	;
+
 	mmput
 	(
 		 $mm
-		,$mm['nodes'][$top_child]['x'] - conn_left_len - conn_right_len
+		,$x
 		,$middle
-		,$mm['conn_left']
+		,$line
 	);
 
 	for ( $i = $top ; $i < $bottom ; $i++ )
@@ -831,19 +956,19 @@ function draw_connections(&$mm, $id)
 		.$mm['conn_right']
 	);
 
-	if (count($node['children'])>2)
-		foreach ($node['children'] as $cid)
-			if ($cid!=$top_child && $cid!=$bottom_child)
-				mmput
-				(
-					 $mm
-					,$mm['nodes'][$cid]['x']-conn_right_len
-					,$mm['nodes'][$cid]['y']
-					+$mm['nodes'][$cid]['lh']/2-0.2
-					+$mm['nodes'][$cid]['yo']
-					,'├'
-					.$mm['conn_right']
-				);
+	if ($num_visible_children>2)
+	foreach ($node['visible_children'] as $cid)
+		if ($cid!=$top_child && $cid!=$bottom_child)
+			mmput
+			(
+				 $mm
+				,$mm['nodes'][$cid]['x']-conn_right_len
+				,$mm['nodes'][$cid]['y']
+				+$mm['nodes'][$cid]['lh']/2-0.2
+				+$mm['nodes'][$cid]['yo']
+				,'├'
+				.$mm['conn_right']
+			);
 
 
 	$existing_char =
@@ -881,7 +1006,7 @@ function draw_connections(&$mm, $id)
 			,'┼'
 		);
 
-	foreach ($node['children'] as $cid)
+	foreach ($node['visible_children'] as $cid)
 		draw_connections($mm, $cid);
 }
 
@@ -893,9 +1018,16 @@ function add_content_to_the_map(&$mm, $id)
 {
 	$node = $mm['nodes'][$id];
 
-	$max_width
-		=  ($node['is_leaf'] || ($node['collapsed'] ?? false)) * $mm['max_leaf_node_width']
-		+ !($node['is_leaf'] || ($node['collapsed'] ?? false)) * $mm['max_parent_node_width']
+	$at_the_end =
+		$node['is_leaf']
+		|| ($node['collapsed'] ?? false)
+		|| count($node['visible_children']) == 0
+	;
+
+	$max_width =
+		$at_the_end
+		? $mm['max_leaf_node_width']
+		: $mm['max_parent_node_width']
 	;
 
 	if ( mb_strlen($node['title']) > width_tolerance * $max_width)
@@ -925,7 +1057,7 @@ function add_content_to_the_map(&$mm, $id)
 		);
 
 	if (!($node['collapsed'] ?? false))
-		foreach ($node['children'] as $cid)
+		foreach ($node['visible_children'] as $cid)
 			add_content_to_the_map($mm,$cid);
 }
 
@@ -948,6 +1080,7 @@ function build_map(&$mm)
 		$mm['nodes'][$id]['y']  = -1;
 		$mm['nodes'][$id]['h']  = -1;
 		$mm['nodes'][$id]['lh'] = -1;
+		$mm['nodes'][$id]['visible_children'] = $mm['nodes'][$id]['children'];
 	}
 
 	$mm['nodes'][0]['x']  = 0;
@@ -962,7 +1095,11 @@ function build_map(&$mm)
 	$mm['map_bottom']=0;
 
 	// calculating the new coordinates
+	if (!$mm['show_hidden'])
+		list_visible_children($mm, $mm['root_id']);
 	calculate_x_and_lh($mm,$mm['root_id']);
+	if ($mm['align_levels'])
+		calculate_aligned_x($mm,$mm['root_id'],$mm['nodes'][ $mm['root_id'] ]['w'] + conn_left_len + conn_right_len + 1);
 	calculate_h($mm);
 	calculate_y($mm);
 	calculate_height_shift($mm, $mm['root_id']);
@@ -1016,15 +1153,103 @@ function toggle_numbers(&$mm)
 
 function toggle_symbol(&$mm)
 {
-	$chr = mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],0,2);
-	if ($chr=='✓ ')
-		$mm['nodes'][ $mm['active_node'] ]['title'] = '✗ '.mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],2);
-	elseif ($chr=='✗ ')
-		$mm['nodes'][ $mm['active_node'] ]['title'] = mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],2);
+	$len1 = mb_strlen($mm['symbol1'])+1;
+	$len2 = mb_strlen($mm['symbol2'])+1;
+
+	$sym1 = mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],0,$len1);
+	$sym2 = mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],0,$len2);
+
+	if ($sym1==$mm['symbol1'].' ')
+		$mm['nodes'][ $mm['active_node'] ]['title'] =
+			$mm['symbol2']
+			.' '
+			.mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],$len1);
+	elseif ($sym2==$mm['symbol2'].' ')
+		$mm['nodes'][ $mm['active_node'] ]['title'] =
+			mb_substr($mm['nodes'][ $mm['active_node'] ]['title'],$len2);
 	else
-		$mm['nodes'][ $mm['active_node'] ]['title'] = '✓ '.$mm['nodes'][ $mm['active_node'] ]['title'];
+		$mm['nodes'][ $mm['active_node'] ]['title'] =
+			$mm['symbol1']
+			.' '
+			.$mm['nodes'][ $mm['active_node'] ]['title'];
 
 	$mm['modified'] = true;
+	build_map($mm);
+	display($mm);
+}
+
+
+// }}}
+// {{{ toggle hide
+
+function toggle_hide(&$mm)
+{
+	if ($mm['active_node'] == $mm['root_id'])
+		return;
+
+	push_change($mm);
+	$mm['modified'] = true;
+
+	$is_hidden = false;
+	if ( substr($mm['nodes'][ $mm['active_node'] ]['title'], 0, 9) == '[HIDDEN] ')
+		$mm['nodes'][ $mm['active_node'] ]['title'] = mb_substr( $mm['nodes'][ $mm['active_node'] ]['title'], 9 );
+	else
+	{
+		$mm['nodes'][ $mm['active_node'] ]['title'] = '[HIDDEN] ' . $mm['nodes'][ $mm['active_node'] ]['title'];
+		$is_hidden = true;
+		move_active_node_to_sibling_or_parent($mm);
+	}
+
+	build_map($mm);
+	display($mm);
+	message($mm, 'Hidden attribute is turned '.($is_hidden ? 'on' : 'off').' for the node.');
+}
+
+function toggle_show_hidden(&$mm)
+{
+	$mm['show_hidden'] = !$mm['show_hidden'];
+	move_active_node_to_sibling_or_parent($mm);
+
+	build_map($mm);
+	display($mm);
+	message($mm, 'Hidden nodes will '.($mm['show_hidden'] ? '' : 'not ').'be shown.');
+}
+
+function move_active_node_to_sibling_or_parent(&$mm)
+{
+	if ($mm['show_hidden'] || substr($mm['nodes'][ $mm['active_node'] ]['title'],0,9)!='[HIDDEN] ' )
+		return;
+
+	$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
+	if (count($mm['nodes'][$parent_id]['visible_children'])<=1)
+		$mm['active_node'] = $parent_id;
+	else
+	{
+		$passed = false;
+
+		// getting the next sibling
+		foreach ($mm['nodes'][$parent_id]['children'] as $cid)
+			if ($cid==$mm['active_node'])
+				$passed = true;
+			elseif ($passed && substr($mm['nodes'][$cid]['title'],0,9)!='[HIDDEN] ')
+			{
+				$mm['active_node'] = $cid;
+				return;
+			}
+
+		// so, there's no item after it!
+		$mm['active_node'] = $parent_id;
+	}
+}
+
+
+
+// }}}
+// {{{ toggle align
+
+function toggle_align(&$mm)
+{
+	$mm['align_levels'] = !$mm['align_levels'];
 	build_map($mm);
 	display($mm);
 }
@@ -1083,7 +1308,8 @@ function change_max_node_width(&$mm, $amount)
 
 function push_node_down(&$mm, $id)
 {
-	if ($id==0)  return;
+	if ($id==$mm['root_id'])
+		return;
 
 	push_change($mm);
 	$mm['modified'] = true;
@@ -1588,6 +1814,10 @@ function previous_search_result(&$mm)
 		if
 		(
 			$id != 0 &&
+			(
+				$mm['show_hidden'] ||
+				substr($node['title'],0,9) != '[HIDDEN] '
+			) &&
 			$node['y'] > -1 &&
 			$node['y']+$node['yo'] < $cy &&
 			$node['y']+$node['yo'] > $ny &&
@@ -1623,6 +1853,10 @@ function next_search_result(&$mm)
 		if
 		(
 			$id != 0 &&
+			(
+				$mm['show_hidden'] ||
+				substr($node['title'],0,9) != '[HIDDEN] '
+			) &&
 			$node['y'] > -1 &&
 			$node['y']+$node['yo'] > $cy &&
 			$node['y']+$node['yo'] < $ny &&
@@ -1653,24 +1887,24 @@ function move_active_node_down(&$mm)
 
 	$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
 	$children = [];
-	$now = false;
+	$just_passed_active = false;
 
 	foreach ($mm['nodes'][ $parent_id ]['children'] as $child)
 	{
 		if ($child!=$mm['active_node'])
 			$children[] = $child;
 
-		if ($now)
+		if ($just_passed_active && ($mm['show_hidden'] || substr($mm['nodes'][$child]['title'],0,9)!='[HIDDEN] ' ) )
 		{
 			$children[] = $mm['active_node'];
-			$now = false;
+			$just_passed_active = false;
 		}
 
 		if ($child==$mm['active_node'])
-			$now = true;
+			$just_passed_active = true;
 	}
 
-	if ($now)
+	if ($just_passed_active)
 		$children[] = $mm['active_node'];
 
 	$mm['nodes'][ $parent_id ]['children'] = $children;
@@ -1689,7 +1923,7 @@ function move_active_node_up(&$mm)
 
 	$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
 	$children = [];
-	$now = false;
+	$just_passed_active = false;
 	$rev_children = array_reverse($mm['nodes'][$parent_id]['children']);
 
 	foreach ($rev_children as $child)
@@ -1697,17 +1931,17 @@ function move_active_node_up(&$mm)
 		if ($child!=$mm['active_node'])
 			$children[] = $child;
 
-		if ($now)
+		if ($just_passed_active && ($mm['show_hidden'] || substr($mm['nodes'][$child]['title'],0,9)!='[HIDDEN] ' ) )
 		{
 			$children[] = $mm['active_node'];
-			$now = false;
+			$just_passed_active = false;
 		}
 
 		if ($child==$mm['active_node'])
-			$now = true;
+			$just_passed_active = true;
 	}
 
-	if ($now)
+	if ($just_passed_active)
 		$children[] = $mm['active_node'];
 
 	$mm['nodes'][ $parent_id ]['children'] = array_reverse($children);
@@ -1795,7 +2029,7 @@ function export_html(&$mm)
 
 function export_html_node(&$mm, $parent_id)
 {
-	if ($mm['nodes'][$parent_id]['children']==[])
+	if ($mm['nodes'][$parent_id]['visible_children']==[])
 	{
 		$output =
 			"<p>"
@@ -1809,7 +2043,7 @@ function export_html_node(&$mm, $parent_id)
 			.$mm['nodes'][$parent_id]['title']
 			."</div>";
 
-		foreach ($mm['nodes'][$parent_id]['children'] as $cid)
+		foreach ($mm['nodes'][$parent_id]['visible_children'] as $cid)
 			$output .= export_html_node($mm, $cid);
 	}
 	else
@@ -1820,7 +2054,7 @@ function export_html_node(&$mm, $parent_id)
 			.$mm['nodes'][$parent_id]['title']
 			."</summary>";
 
-		foreach ($mm['nodes'][$parent_id]['children'] as $cid)
+		foreach ($mm['nodes'][$parent_id]['visible_children'] as $cid)
 			$output .= export_html_node($mm, $cid);
 
 		$output .=
@@ -1836,32 +2070,13 @@ function export_html_node(&$mm, $parent_id)
 
 function export_text(&$mm)
 {
-	if (empty($mm['filename']))
-	{
-		message($mm, "Can't export the map when it doesn't have a file name yet. Save it first.");
-		return;
-	}
+	$output = '';
+	foreach ($mm['map'] as $line)
+		if (rtrim($line) != '')
+			$output .= substr(rtrim($line),3)."\n";
 
-	$file = fopen($mm['filename'].'.txt', "w");
-
-	if ($file===false)
-	{
-		message($mm, 'ERROR! Could not save the file');
-		return;
-	}
-
-	fwrite
-	(
-		$file
-		,implode("\n",$mm['map'])
-	);
-
-	fclose($file);
-
-	message($mm, 'Exported as '.$mm['filename'].'.txt');
-	$filename = getenv('PWD').'/'.basename($mm['filename']).'.txt';
-	copy_to_clipboard($mm, $filename);
-
+	copy_to_clipboard($mm, $output);
+	message($mm, 'Exported the map to clipboard.');
 }
 
 
@@ -2048,7 +2263,8 @@ function change_active_node(&$mm, $x, $y)
 
 	if ($x > 0)
 	{
-		if ($node['is_leaf']) return;
+		if (count($node['visible_children'])==0)
+			return;
 
 		// auto-unfold node on right move
 		if ($node['collapsed'] ?? false) {
@@ -2057,7 +2273,7 @@ function change_active_node(&$mm, $x, $y)
 		}
 
 		$distance = [];
-		foreach ($node['children'] as $cid)
+		foreach ($node['visible_children'] as $cid)
 			$distance[$cid] =
 				abs
 				(
@@ -2097,7 +2313,7 @@ function change_active_node(&$mm, $x, $y)
 
 	if ($y < 0)
 	{
-		$rchildren = array_reverse($mm['nodes'][ $node['parent'] ]['children']);
+		$rchildren = array_reverse($mm['nodes'][ $node['parent'] ]['visible_children']);
 		foreach ($rchildren as $cid)
 			if ($mm['nodes'][$cid]['y']+$mm['nodes'][$cid]['yo'] < $node['y']+$node['yo'])
 			{
@@ -2108,7 +2324,7 @@ function change_active_node(&$mm, $x, $y)
 	}
 
 	if ($y > 0)
-		foreach ($mm['nodes'][ $node['parent'] ]['children'] as $cid)
+		foreach ($mm['nodes'][ $node['parent'] ]['visible_children'] as $cid)
 			if ($mm['nodes'][$cid]['y']+$mm['nodes'][$cid]['yo'] > $node['y']+$node['yo'])
 			{
 				$mm['active_node'] = $cid;
@@ -2148,29 +2364,6 @@ function change_active_node(&$mm, $x, $y)
 
 
 // }}}
-// {{{ expand
-
-function expand(&$mm, $id)
-{
-	$mm['nodes'][$id]['collapsed'] = false;
-
-	foreach ($mm['nodes'][$id]['children'] as $cid)
-		expand($mm, $cid);
-}
-
-
-function expand_all(&$mm)
-{
-	foreach ($mm['nodes'] as $id=>$node)
-		$mm['nodes'][$id]['collapsed'] = false;
-
-	build_map($mm);
-	center_active_node($mm);
-	display($mm);
-}
-
-
-// }}}
 // {{{ append
 
 function append(&$mm)
@@ -2202,8 +2395,8 @@ function paste_sub_tree(&$mm, $as_sibling )
 	else
 		$parent_id = $mm['active_node'];
 
-	$mm['nodes'][$parent_id]['collapsed'] = false;
-	$mm['nodes'][ $parent_id ]['is_leaf'] = false;
+	$mm['nodes'][ $parent_id ]['collapsed'] = false;
+	$mm['nodes'][ $parent_id ]['is_leaf']   = false;
 
 	$new_id = 1 + max(array_keys($mm['nodes']));
 
@@ -2335,9 +2528,13 @@ function load_empty_map(&$mm)
 		]
 	;
 
+	$title = basename( empty($mm['filename']) ? 'root' : $mm['filename'] );
+	if (substr($title,-4)=='.hmm')
+		$title = substr($title,0,-4);
+
 	$mm['nodes'][1] =
 		[
-			'title'=> basename( $mm['filename'] ?? 'root' )
+			'title'=> $title
 			,'is_leaf'=>true
 			,'children'=>[]
 			,'collapsed'=>false
@@ -2410,7 +2607,7 @@ function delete_node_internal(&$mm, $active_node, $exclude_parent = false )
 
 		$previous_sibling = 0;
 		$passed = false;
-		foreach ($mm['nodes'][$parent_id]['children'] as $cid)
+		foreach ($mm['nodes'][$parent_id]['visible_children'] as $cid)
 			if ($cid==$active_node)
 			{
 				if ($previous_sibling!=0) break;
@@ -2430,12 +2627,20 @@ function delete_node_internal(&$mm, $active_node, $exclude_parent = false )
 			)
 		;
 
+		$mm['nodes'][$parent_id]['visible_children'] =
+			array_diff
+			(
+				$mm['nodes'][$parent_id]['visible_children'],
+				[$active_node]
+			)
+		;
+
 		if (count($mm['nodes'][$parent_id]['children'])==0)
 			$mm['nodes'][$parent_id]['is_leaf'] = true;
 
 		unset($mm['nodes'][ $active_node ]);
 
-		if ($mm['nodes'][$parent_id]['is_leaf'])
+		if (count($mm['nodes'][$parent_id]['visible_children'])==0)
 			$mm['active_node'] = $parent_id;
 		else
 			$mm['active_node'] = $previous_sibling;
@@ -2474,9 +2679,24 @@ function focus(&$mm)
 }
 
 
+// }}}
+// {{{ collapse and expand
+
+function expand_all(&$mm)
+{
+	foreach ($mm['nodes'] as $id=>$node)
+		$mm['nodes'][$id]['collapsed'] = false;
+
+	build_map($mm);
+	center_active_node($mm);
+	display($mm);
+}
+
+
 function collapse_siblings(&$mm, $id)
 {
-	if ($id <= $mm['root_id']) return;
+	if ($id <= $mm['root_id'])
+		return;
 
 	$parent_id = $mm['nodes'][$id]['parent'];
 
@@ -2490,16 +2710,14 @@ function collapse_siblings(&$mm, $id)
 
 function expand_siblings(&$mm, $id)
 {
-	if ($mm['nodes'][$id]['is_leaf']) return;
+	if ($mm['nodes'][$id]['is_leaf'])
+		return;
 
 	$mm['nodes'][$id]['collapsed'] = false;
 	foreach ($mm['nodes'][$id]['children'] as $cid)
 		expand_siblings($mm, $cid);
 }
 
-
-// }}}
-// {{{ collapse
 
 function collapse_other_branches(&$mm)
 {
@@ -2696,20 +2914,21 @@ function display(&$mm, $force_center = false)
 			;
 
 		// styling the codes when the node is not active
-		// it used to be the 'else' of the above condition
-		// because it resets the bold attribute of the active
-		// node. However, it think losing the bold attribute
-		// is better than leaving the numbers unformatted 
-		// in the same line as the active node.
+		// with "else", the downside is that other codes
+		// with the same "y" will not be styled.
+		// Without the "else", the downside is that the
+		// rest of the line in the active node won't be bold.
+		// between these two, I think the former is better.
 
-		$line =
-			mb_ereg_replace
-			(
-				'\b(.?\d+)\. '
-				,dim_on.'\\1. '.dim_off
-				,$line
-			)
-		;
+		else
+			$line =
+				mb_ereg_replace
+				(
+					'\b(.?\d+)\. '
+					,dim_on.'\\1. '.dim_off
+					,$line
+				)
+			;
 
 		// styling the search results
 
@@ -2845,6 +3064,17 @@ function rank(&$mm, $add_positive, $add_negative)
 
 
 // }}}
+// {{{ open link
+
+function open_link(&$mm)
+{
+	message($mm,'Opening the node with xdg-open...');
+	exec('xdg-open "'.$mm['nodes'][ $mm['active_node'] ]['title'].'" >/dev/null 2>&1 &', $output, $result);
+	display($mm);
+}
+
+
+// }}}
 // {{{ sort
 
 function sort_siblings(&$mm)
@@ -2860,9 +3090,26 @@ function sort_siblings(&$mm)
 
 	foreach ($sibling_ids as $sid)
 		if (mb_ereg('^\((\d+)\+,(\d+)\-\)', $mm['nodes'][$sid]['title'], $values))
-			$siblings[ (9000000 - $values[1] + $values[2]).'.'.$sid ] = $sid;
+			$siblings
+			[
+				(9000000 - $values[1] + $values[2])
+				.'.'
+				.$sid 
+			]
+			= $sid;
 		else
-			$siblings[ $mm['nodes'][$sid]['title'].'.'.$sid ] = $sid;
+			$siblings
+			[
+				mb_ereg_replace
+				(
+					'^\[HIDDEN\] |^'.$mm['symbol1'].' |^'.$mm['symbol2'].' '
+					,''
+					,$mm['nodes'][$sid]['title']
+				)
+				.'.'
+				.$sid
+			] 
+			= $sid;
 
 	ksort($siblings, SORT_NATURAL);
 
@@ -2886,7 +3133,9 @@ function monitor_key_presses(&$mm)
 	{
 		usleep(20000);
 		$in = fread(STDIN, 16);
-		if (empty($in)) continue;
+
+		if (empty($in))
+			continue;
 
 		switch ($in)
 		{
@@ -2913,6 +3162,8 @@ function monitor_key_presses(&$mm)
 			case 'G':       go_to_bottom($mm); break;
 
 			case 'h':       change_active_node($mm, -1,0); break;
+			case 'H':       toggle_hide($mm); break;
+			case ctrl_h:    toggle_show_hidden($mm); break;
 
 			case 'i':       edit_node($mm); break;
 			case 'I':       edit_node($mm, true); break;
@@ -2931,6 +3182,7 @@ function monitor_key_presses(&$mm)
 			case 'n':       next_search_result($mm); break;
 			case 'N':       previous_search_result($mm); break;
 
+			case ctrl_o:    open_link($mm); break;
 			case 'o':       insert_new_node($mm, insert_sibling); break;
 			case 'O':       insert_new_node($mm, insert_child); break;
 
@@ -2987,6 +3239,8 @@ function monitor_key_presses(&$mm)
 
 			case ' ':       toggle_node($mm); break;
 
+			case '|':       toggle_align($mm); break;
+
 			case '/':       search($mm); break;
 			case '?':       search($mm); break;
 			case ctrl_f:    search($mm); break;
@@ -3027,7 +3281,7 @@ enable_alternate_screen();
 load_file($mm);
 
 collapse_all($mm);
-collapse_level($mm, $mm['initial_depth'], true);
+collapse_level($mm, $mm['initial_depth'], false);
 
 monitor_key_presses($mm);
 

@@ -35,12 +35,13 @@ Adding, removing, and editing nodes:
 
 Marks:
 
-* `t` - toggles '✓ ', '✗ ', and '' at the beginning of the title
+* `t` - toggles '✓ ', '✗ ', and '' (or your custom symbols) at the beginning of the title
 * `#` - adds or removes sequential numbers at the beginning of the titles of a node and its siblings
 * `=` - increases the positive ranking
 * `+` - decreases the positive ranking
 * `-` - increases the negative ranking
 * `_` - decreases the negative ranking
+* `H` - toggles the hidden flag
 
 Relative navigating and moving:
 
@@ -55,7 +56,7 @@ Relative navigating and moving:
 Adjusting the view:
 
 * `c` - centers the active node on the screen
-* `C` - locks and always keeps active nodes on the center 
+* `C` - locks/unlocks active nodes on the center 
 * `~` or `m` - activate the root element
 * `g` - goes to the highest element
 * `G` - goes to the lowest element
@@ -63,6 +64,8 @@ Adjusting the view:
 * `W` - decreases the maximum node width
 * `z` - decreases line spacing
 * `Z` - increases line spacing 
+* `|` - enables/disables aligned levels
+* `ctrl+h` - hides/views hidden nodes
 
 Collapsing and expanding:
 
@@ -82,13 +85,15 @@ Search:
 * `n` - goes to the next search result
 * `N` - goes to the previous search result
 
-Save, export, and quit:
+Save, export, quit, etc.:
 
 * `s` - saves with the previous file name (or asks for one if there's none)
 * `S` - saves with a new file name
-* `x` - export as HTML
+* `x` - export as an HTML file
+* `X` - export as a text map into clipboard
 * `q` - quits (if the changes were already saved)
 * `Q` - quits, ignoring the changes
+* `Ctrl+o` - open the active node as a file or URL using xdg-open
 
 In the text editor:
 
@@ -114,17 +119,20 @@ The following are the settings in h-m-m:
     max_parent_node_width = 25
     max_leaf_node_width = 55
     line_spacing = 1
+	align_levels = 0
     initial_depth = 1
 	center_lock = false
 	focus_lock = false
 	max_undo_steps = 24
-    active_node_color = "\033[38;5;0m\033[48;5;172m\033[1m"
-    message_color = "\033[38;5;0m\033[48;5;141m\033[1m"
+    active_node_color = \033[38;5;0m\033[48;5;172m\033[1m
+    message_color = \033[38;5;0m\033[48;5;141m\033[1m
 	clipboard = os
 	clipboard_file = /tmp/h-m-m
 	clipboard_in_command = ""
 	clipboard_out_command = ""
 	post_export_command = ""
+	symbol1 = ✓
+	symbol2 = ✗
 
 The colors are ASCII escape codes. 
 
