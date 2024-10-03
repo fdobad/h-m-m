@@ -1,12 +1,3 @@
-# debian install
-```
-sudo apt install php-cli php-mbstring xclip
-echo '
-#hmm
-alias hmm="~/source/h-m-m/h-m-m"
-'>>~/.bashrc
-```
-
 # h-m-m (hackers mind map)
 
 **h-m-m** (pronounced like the interjection "hmm") is a simple, fast, keyboard-centric terminal-based tool for working with mind maps. 
@@ -205,6 +196,19 @@ After downloading or cloning, you can run `php h-m-m` in your terminal to run th
  
 Optionally, you can make the file executable by running the `chmod +x h-m-m` in your terminal, and afterward, you can run it as `h-m-m filename` (assuming that **h-m-m** is in your path). 
 
+
+## 2. Debian Stable
+```
+# get the code
+git clone https://github.com/nadrad/h-m-m.git <choose/your/path/h-m-m>
+# install dependencies
+sudo apt install php-cli php-mbstring xclip
+# easy launch with an alias
+echo '
+#hmm
+alias hmm="<choose/your/path/h-m-m>/h-m-m"
+'>>~/.bashrc
+```
 
 ## 2. Installation for Arch Linux
 
