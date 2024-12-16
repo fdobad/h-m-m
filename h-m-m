@@ -31,6 +31,8 @@ $mm=[];
 // parsing the command line arguments
 
 $mm['arguments'] = [];
+$mm['config'] = [];
+$mm['env'] = [];
 $alen = count($argv);
 
 for ( $i = 1 ; $i < $alen ; $i++ )
@@ -122,6 +124,9 @@ config($mm, 'clipboard_file',        "/tmp/h-m-m");
 config($mm, 'clipboard_in_command',  "");
 config($mm, 'clipboard_out_command', "");
 
+config($mm, 'auto_save',             false);
+config($mm, 'echo_keys',             false);
+
 
 if (isset($mm['arguments']['debug_config']))
 {
@@ -174,20 +179,96 @@ const BOM                   = "\xEF\xBB\xBF";
 const default_color         = "\033[0m";
 const clear_screen          = "\033[2J";
 
-const ctrl_p                = "\020";
-const ctrl_c                = "\003";
-const ctrl_r                = "\022";
-const ctrl_f                = "\006";
-const ctrl_v                = "\026";
-const ctrl_h                = "\010";
-const ctrl_o                = "\017";
+const special_keys =
+[
+	'ctrl_a' => "\001",
+	'ctrl_b' => "\002",
+	'ctrl_c' => "\003",
+	'ctrl_d' => "\004",
+	'ctrl_e' => "\005",
+	'ctrl_f' => "\006",
+	'ctrl_g' => "\007",
+	'ctrl_back_space' => "\010",
+	'ctrl_h' => "\010",
+	'ctrl_i' => "\011",
+	'ctrl_j' => "\012",
+	'ctrl_k' => "\013",
+	'ctrl_l' => "\014",
+	'ctrl_m' => "\015",
+	'ctrl_n' => "\016",
+	'ctrl_o' => "\017",
+	'ctrl_p' => "\020",
+	'ctrl_q' => "\021",
+	'ctrl_r' => "\022",
+	'ctrl_s' => "\023",
+	'ctrl_t' => "\024",
+	'ctrl_u' => "\025",
+	'ctrl_v' => "\026",
+	'ctrl_w' => "\027",
+	'ctrl_x' => "\030",
+	'ctrl_y' => "\031",
+	'ctrl_z' => "\032",
 
-const arr_down              = "\033\133\102";
-const arr_right             = "\033\133\103";
-const arr_up                = "\033\133\101";
-const arr_left              = "\033\133\104";
+	'alt_a' => "\033\141",
+	'alt_b' => "\033\142",
+	'alt_c' => "\033\143",
+	'alt_d' => "\033\144",
+	'alt_e' => "\033\145",
+	'alt_f' => "\033\146",
+	'alt_g' => "\033\147",
+	'alt_h' => "\033\150",
+	'alt_i' => "\033\151",
+	'alt_j' => "\033\152",
+	'alt_k' => "\033\153",
+	'alt_l' => "\033\154",
+	'alt_m' => "\033\155",
+	'alt_n' => "\033\156",
+	'alt_o' => "\033\157",
+	'alt_p' => "\033\160",
+	'alt_q' => "\033\161",
+	'alt_r' => "\033\162",
+	'alt_s' => "\033\163",
+	'alt_t' => "\033\164",
+	'alt_u' => "\033\165",
+	'alt_v' => "\033\166",
+	'alt_w' => "\033\167",
+	'alt_x' => "\033\170",
+	'alt_y' => "\033\171",
+	'alt_z' => "\033\172",
 
-const del                   = "\033\133\063\176";
+	'arr_down' => "\033\133\102",
+	'arr_right'=> "\033\133\103",
+	'arr_up'   => "\033\133\101",
+	'arr_left' => "\033\133\104",
+
+	'meta_arr_left' => "\033\033\133\104",
+	'ctrl_arr_left'   => "\033\133\061\073\065\104",
+	'shift_arr_left'  => "\033\133\061\073\062\104",
+
+	'meta_arr_right'=> "\033\033\133\103",
+	'ctrl_arr_right'  => "\033\133\061\073\065\103",
+	'shift_arr_right' => "\033\133\061\073\062\103",
+
+	'home_alternative1' => "\033\133\110",
+	'home_alternative2' => "\033\133\061\176",
+	'home_alternative3' => "\033\133\067\176",
+
+	'end_alternative1'  => "\033\133\106",
+	'end_alternative2'  => "\033\133\064\176",
+	'end_alternative3'  => "\033\133\070\176",
+
+	'del' => "\033\133\063\176",
+	'ctrl_del' => "\033\133\63\073\065\176",
+	'back_space' => "\177",
+	'meta_back_space' => "\033\177",
+
+	'enter' => "\012",
+	'space' => "\040",
+	'tab'   => "\011",
+	'esc'   => "\033",
+	'equal' => "="
+
+];
 
 const reset_page            = "\033[2J\033[0;0f";
 const reset_color           = "\033[0m";
@@ -207,6 +288,133 @@ const collapsed_symbol_off  = "\033[0m";
 const insert_sibling        = 0;
 const insert_child          = 1;
 
+$keybindings = [];
+
+$keybindings['a'] = 'edit_node_append';
+$keybindings['A'] = 'edit_node_replace';
+
+$keybindings['b'] = 'expand_all';
+
+$keybindings['c'] = 'center_active_node';
+$keybindings['C'] = 'toggle_center_lock';
+$keybindings[special_keys['ctrl_c']] = 'quit';
+
+$keybindings['d'] = 'delete_node';
+$keybindings['D'] = 'delete_children';
+$keybindings[special_keys['del']] = 'delete_node_without_clipboard';
+
+$keybindings['e'] = 'edit_node_append';
+$keybindings['E'] = 'edit_node_replace';
+
+$keybindings['f'] = 'focus';
+$keybindings['F'] = 'toggle_focus_lock';
+
+$keybindings['g'] = 'go_to_top';
+$keybindings['G'] = 'go_to_bottom';
+
+$keybindings['h'] = 'go_left';
+$keybindings['H'] = 'toggle_hide';
+$keybindings[special_keys['ctrl_h']] = 'toggle_show_hidden';
+
+$keybindings['i'] = 'edit_node_append';
+$keybindings['I'] = 'edit_node_replace';
+
+$keybindings['j'] = 'go_down';
+$keybindings['J'] = 'move_node_down';
+
+$keybindings['k'] = 'go_up';
+$keybindings['K'] = 'move_node_up';
+
+$keybindings['l'] = 'go_right';
+
+$keybindings['m'] = 'go_to_root';
+$keybindings['~'] = 'go_to_root';
+
+$keybindings['n'] = 'next_search_result';
+$keybindings['N'] = 'previous_search_result';
+
+$keybindings['o'] = 'insert_new_sibling';
+$keybindings['O'] = 'insert_new_child';
+$keybindings[special_keys['ctrl_o']] = 'open_link';
+
+$keybindings['p'] = 'paste_as_children';
+$keybindings['P'] = 'paste_as_siblings';
+$keybindings[special_keys['ctrl_p']] = 'append';
+
+$keybindings['q'] = 'quit';
+$keybindings['Q'] = 'shutdown';
+$keybindings[special_keys['ctrl_q']] = 'quit_with_debug';
+
+$keybindings['r'] = 'collapse_other_branches';
+$keybindings['R'] = 'collapse_inner';
+
+$keybindings['s'] = 'save';
+$keybindings['S'] = 'save_as';
+
+$keybindings['t'] = 'toggle_symbol';
+$keybindings['T'] = 'sort_siblings';
+$keybindings['#'] = 'toggle_numbers';
+
+$keybindings['u'] = 'undo';
+
+$keybindings['v'] = 'collapse_all';
+$keybindings['V'] = 'collapse_children';
+
+$keybindings['w'] = 'increase_text_width';
+$keybindings['W'] = 'decrease_text_width';
+
+$keybindings['x'] = 'export_html';
+$keybindings['X'] = 'export_text';
+
+$keybindings['y'] = 'yank_node';
+$keybindings['Y'] = 'yank_children';
+
+$keybindings['z'] = 'decrease_line_spacing';
+$keybindings['Z'] = 'increase_line_spacing';
+
+$keybindings["\n"] = 'insert_new_sibling';
+$keybindings["\t"] = 'insert_new_child';
+$keybindings[" "]  = 'toggle_node';
+
+$keybindings[special_keys['arr_down']]  = 'go_down';
+$keybindings[special_keys['arr_up']]    = 'go_up';
+$keybindings[special_keys['arr_right']] = 'go_right';
+$keybindings[special_keys['arr_left']]  = 'go_left';
+
+$keybindings['1'] = 'collapse_level_1';
+$keybindings['2'] = 'collapse_level_2';
+$keybindings['3'] = 'collapse_level_3';
+$keybindings['4'] = 'collapse_level_4';
+$keybindings['5'] = 'collapse_level_5';
+$keybindings['6'] = 'collapse_level_6';
+$keybindings['7'] = 'collapse_level_7';
+$keybindings['8'] = 'collapse_level_8';
+$keybindings['9'] = 'collapse_level_9';
+
+$keybindings['|'] = 'toggle_align';
+
+$keybindings['?']    = 'help';
+$keybindings['/']    = 'search';
+$keybindings[special_keys['ctrl_f']] = 'search';
+
+$keybindings['=']    = 'increase_positive_rank';
+$keybindings['+']    = 'decrease_positive_rank';
+$keybindings['-']    = 'increase_negative_rank';
+$keybindings['_']    = 'decrease_negative_rank';
+
+foreach ($mm['config'] as $key=>$value)
+	if (substr($key,0,4) == 'bind')
+	{
+		$key = trim(substr($key,4));
+		if (isset(special_keys[$key]))
+			$key = special_keys[$key];
+		if (!is_callable($value))
+		{
+			echo 'Config error! "'.$value.'" is an unknown command.'."\n";
+			exit;
+		}
+		$keybindings[$key] = trim($value);
+	}
 
 
 function config(&$mm, $key, $default)
@@ -264,12 +472,12 @@ function check_the_available_clipboard_tool(&$mm)
 
 	// now, the main OS ;)
 
-	exec('command -v xclip xsel wl-copy', $result);
+	exec('command -v xclip xsel wl-copy klipper', $result);
 	$tool = basename($result[0] ?? '');
 
 	if (trim($tool)==='')
 	{
-		echo "Can't find your clipboard tool! I expected to find xclip, xsel, or wl-clipboard.".PHP_EOL;
+		echo "Can't find your clipboard tool! I expected to find xclip, xsel, wl-clipboard, or Klipper.".PHP_EOL;
 		exit(1);
 	}
 
@@ -288,6 +496,12 @@ function check_the_available_clipboard_tool(&$mm)
 		case 'wl-copy':
 			$mm['os_clipboard']['write'] = 'wl-copy';
 			$mm['os_clipboard']['read']  = 'wl-paste';
+			break;
+
+		case 'klipper':
+			$mm['clipboard'] = 'command';
+			$mm['clipboard_in_command']  = 'qdbus org.kde.klipper /klipper setClipboardContents %text%';
+			$mm['clipboard_out_command'] = 'qdbus org.kde.klipper /klipper getClipboardContents';
 			break;
 
 		default:
@@ -342,13 +556,19 @@ function list_to_map($lines, $root_id, $start_id)
 		$lines[$lid] =
 			mb_ereg_replace
 			(
-				"[\000-\010\013-\037\177]|".BOM
-				,''
-				,str_replace
+				"^( *)•"
+				,'\1*'
+				,
+				mb_ereg_replace
 				(
-					 [ "\t", "\n" ]
-					,[ "  ", " "  ]
-					,$lines[$lid]
+					"[\000-\010\013-\037\177]|".BOM
+					,''
+					,str_replace
+					(
+						 [ "\t", "\n" ]
+						,[ "  ", " "  ]
+						,$lines[$lid]
+					)
 				)
 			)
 		;
@@ -548,6 +768,7 @@ function calculate_x_and_lh(&$mm, $id)
 {
 	$node = $mm['nodes'][$id];
 
+
 	$mm['nodes'][$id]['x'] =
 		$mm['nodes'][ $node['parent'] ]['x']
 		+ $mm['nodes'][ $node['parent'] ]['w']
@@ -579,15 +800,19 @@ function calculate_x_and_lh(&$mm, $id)
 		$lines = explode(PHP_EOL ,wordwrap($node['title'] ,$max_width, PHP_EOL));
 
 		$mm['nodes'][$id]['w'] = 0;
+		$mm['nodes'][$id]['wl'] = 0;
 		foreach ($lines as $line)
-			$mm['nodes'][$id]['w'] =
-				max($mm['nodes'][$id]['w'], trim(mb_strlen($line)));
+		{
+			$mm['nodes'][$id]['w']  = max($mm['nodes'][$id]['w'],  mb_strwidth(trim($line)));
+			$mm['nodes'][$id]['wl'] = max($mm['nodes'][$id]['wl'], mb_strlen(trim($line)));
+		}
 
 		$mm['nodes'][$id]['lh'] = count($lines);
 	}
 	else
 	{
-		$mm['nodes'][$id]['w']  = mb_strlen(trim($node['title']));
+		$mm['nodes'][$id]['w']  = mb_strwidth(trim($node['title']));
+		$mm['nodes'][$id]['wl'] = mb_strlen(trim($node['title']));
 		$mm['nodes'][$id]['lh'] = 1;
 	}
 
@@ -609,6 +834,7 @@ function calculate_x_and_lh(&$mm, $id)
 		calculate_x_and_lh($mm, $cid);
 		$mm['nodes'][$id]['clh'] += $mm['nodes'][$cid]['clh'];
 	}
+
 }
 
 
@@ -833,7 +1059,7 @@ function draw_connections(&$mm, $id)
 			.
 			(
 				$mm['align_levels']
-				? str_repeat('─', $child['x'] - $node['x'] - $node['w'] + 1)
+				? str_repeat('─', $child['x'] - $node['x'] - $node['w'] - 1)
 				: $mm['conn_single']
 			)
 		;
@@ -916,7 +1142,7 @@ function draw_connections(&$mm, $id)
 		.
 		(
 			$mm['align_levels']
-			? str_repeat('─', $mm['nodes'][$top_child]['x'] - $node['x'] - $node['w'] - 2 )
+			? str_repeat('─', $mm['nodes'][$top_child]['x'] - $node['x'] - $node['w'] - 3 )
 			: $mm['conn_left']
 		)
 	;
@@ -1010,6 +1236,27 @@ function draw_connections(&$mm, $id)
 		draw_connections($mm, $cid);
 }
 
+function calculate_xo(&$mm)
+{
+	foreach($mm['nodes'] as $id=>$node) {
+		$node = $mm['nodes'][$id];
+		$mm['nodes'][$id]['xo'] = 0;
+
+		if (!array_key_exists('yo',$node)) {
+			$node['yo'] = 0;
+		}
+
+		foreach($mm['nodes'] as $fore_node ) {
+			if (!array_key_exists('yo', $fore_node)) {
+				$fore_node['yo'] = 0;
+			}
+
+			if ($fore_node['y'] + $fore_node['yo'] == $node['y']  + $node['yo'] && $fore_node['x'] < $node['x']) {
+				$mm['nodes'][$id]['xo'] +=  mb_strlen($fore_node['title']) - mb_strwidth($fore_node['title']);
+			}
+		}
+	}
+}
 
 // }}}
 // {{{ add content to the map
@@ -1051,7 +1298,7 @@ function add_content_to_the_map(&$mm, $id)
 		mmput
 		(
 			$mm,
-			$node['x'],
+			$node['x']+$node['xo'],
 			$node['y']+$node['yo']+$i,
 			$lines[$i].' '
 		);
@@ -1084,6 +1331,7 @@ function build_map(&$mm)
 	}
 
 	$mm['nodes'][0]['x']  = 0;
+	$mm['nodes'][0]['xo']  = 0;
 	$mm['nodes'][0]['w']  = left_padding;
 	$mm['nodes'][0]['lh'] = 1;
 
@@ -1104,9 +1352,11 @@ function build_map(&$mm)
 	calculate_y($mm);
 	calculate_height_shift($mm, $mm['root_id']);
 
+	calculate_xo($mm);
+
 	// resetting the map, 2/2
 	$height = max($mm['map_bottom'],$mm['terminal_height']);
-	$blank = str_repeat(' ', $mm['map_width']+$mm['terminal_width']);
+	$blank = str_repeat(' ', max($mm['map_width'],$mm['terminal_width']));
 
 	for ($i=$mm['map_top'] ; $i<=$height ; $i++)
 		$mm['map'][$i] = $blank;
@@ -1121,9 +1371,11 @@ function build_map(&$mm)
 // }}}
 // {{{ toggle numbers
 
-function toggle_numbers(&$mm)
+function toggle_numbers()
 {
-	if ($mm['active_node'] <= $mm['root'])
+	global $mm;
+
+	if ($mm['active_node'] <= $mm['root_id'])
 		return;
 
 	$padlen = count($mm['nodes'][ $mm['nodes'][$mm['active_node']]['parent'] ]['children']) > 9 ? 2 : 1;
@@ -1140,7 +1392,7 @@ function toggle_numbers(&$mm)
 		else
 			$mm['nodes'][$cid]['title'] = str_pad($i++, $padlen, '0', STR_PAD_LEFT).'. '.$mm['nodes'][$cid]['title'];
 
-	$mm['modified'] = true;
+	push_change($mm);
 	build_map($mm);
 	display($mm);
 }
@@ -1151,8 +1403,10 @@ function toggle_numbers(&$mm)
 // }}}
 // {{{ toggle symbol
 
-function toggle_symbol(&$mm)
+function toggle_symbol()
 {
+	global $mm;
+
 	$len1 = mb_strlen($mm['symbol1'])+1;
 	$len2 = mb_strlen($mm['symbol2'])+1;
 
@@ -1173,7 +1427,7 @@ function toggle_symbol(&$mm)
 			.' '
 			.$mm['nodes'][ $mm['active_node'] ]['title'];
 
-	$mm['modified'] = true;
+	push_change($mm);
 	build_map($mm);
 	display($mm);
 }
@@ -1182,13 +1436,14 @@ function toggle_symbol(&$mm)
 // }}}
 // {{{ toggle hide
 
-function toggle_hide(&$mm)
+function toggle_hide()
 {
+	global $mm;
+
 	if ($mm['active_node'] == $mm['root_id'])
 		return;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	$is_hidden = false;
 	if ( substr($mm['nodes'][ $mm['active_node'] ]['title'], 0, 9) == '[HIDDEN] ')
@@ -1205,8 +1460,10 @@ function toggle_hide(&$mm)
 	message($mm, 'Hidden attribute is turned '.($is_hidden ? 'on' : 'off').' for the node.');
 }
 
-function toggle_show_hidden(&$mm)
+function toggle_show_hidden()
 {
+	global $mm;
+
 	$mm['show_hidden'] = !$mm['show_hidden'];
 	move_active_node_to_sibling_or_parent($mm);
 
@@ -1247,8 +1504,9 @@ function move_active_node_to_sibling_or_parent(&$mm)
 // }}}
 // {{{ toggle align
 
-function toggle_align(&$mm)
+function toggle_align()
 {
+	global $mm;
 	$mm['align_levels'] = !$mm['align_levels'];
 	build_map($mm);
 	display($mm);
@@ -1258,8 +1516,10 @@ function toggle_align(&$mm)
 // }}}
 // {{{ toggle node
 
-function toggle_node(&$mm)
+function toggle_node()
 {
+	global $mm;
+
 	if ($mm['nodes'][ $mm['active_node'] ]['is_leaf'])
 		$mm['active_node'] = $mm['nodes'][ $mm['active_node'] ]['parent'];
 
@@ -1274,12 +1534,24 @@ function toggle_node(&$mm)
 // }}}
 // {{{ change line spacing
 
+function increase_line_spacing()
+{
+	global $mm;
+	change_line_spacing($mm, +1);
+}
+
+function decrease_line_spacing()
+{
+	global $mm;
+	change_line_spacing($mm, -1);
+}
+
 function change_line_spacing(&$mm, $amount)
 {
 	$mm['line_spacing'] = max(0, $mm['line_spacing'] + $amount);
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 	message($mm,'Spacing: '.$mm['line_spacing']);
 }
@@ -1287,6 +1559,18 @@ function change_line_spacing(&$mm, $amount)
 
 // }}}
 // {{{ change max node width
+
+function increase_text_width()
+{
+	global $mm;
+	change_max_node_width($mm, width_change_factor);
+}
+
+function decrease_text_width()
+{
+	global $mm;
+	change_max_node_width($mm, 1/width_change_factor);
+}
 
 function change_max_node_width(&$mm, $amount)
 {
@@ -1296,7 +1580,7 @@ function change_max_node_width(&$mm, $amount)
 	$mm['max_leaf_node_width']   = round(min($mx, max( width_min, $mm['max_leaf_node_width']   * $amount )));
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 
 	message($mm,'Width: '.$mm['max_parent_node_width'].' / '.$mm['max_leaf_node_width']);
@@ -1312,7 +1596,6 @@ function push_node_down(&$mm, $id)
 		return;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	if (isset($mm['nodes'][$id+1]))
 		push_node_down($mm,$id+1);
@@ -1342,8 +1625,22 @@ function push_node_down(&$mm, $id)
 // }}}
 // {{{ insert node
 
-function insert_new_node(&$mm, $type)
+
+function insert_new_child()
 {
+	insert_new_node(insert_child);
+}
+
+function insert_new_sibling()
+{
+	insert_new_node(insert_sibling);
+}
+
+
+function insert_new_node($type)
+{
+	global $mm;
+
 	if ($mm['active_node']==$mm['root_id'])
 		$type=insert_child;
 
@@ -1386,7 +1683,6 @@ function insert_new_node(&$mm, $type)
 	display($mm);
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	$mm['nodes'][ $mm['active_node'] ]['title']='';
 	edit_node($mm);
@@ -1415,31 +1711,37 @@ function magic_readline(&$mm, $title)
 
 		if ($in != '')
 		{
-			// Esc.
-			if ($in=="\033")
+			if ($in==special_keys['esc'])
 			{
 				display($mm);
 				return false;
 			}
 
-			// up arrow and home
-			elseif ($in=="\033\133\101" || $in=="\033\133\110")
+			elseif
+			(
+				$in==special_keys['arr_up'] || 
+				$in==special_keys['home_alternative1'] ||
+				$in==special_keys['home_alternative2'] ||
+				$in==special_keys['home_alternative3']
+			)
 				$cursor = 1;
 
-			// right arrow
-			elseif ($in=="\033\133\103")
-				$cursor = min( mb_strlen($title)+1, $cursor+1);
-
-			// down arrow and end
-			elseif ($in=="\033\133\102" || $in=="\033\133\106")
+			elseif
+			(
+				$in==special_keys['arr_down'] || 
+				$in==special_keys['end_alternative1'] ||
+				$in==special_keys['end_alternative2'] ||
+				$in==special_keys['end_alternative3']
+			)
 				$cursor = mb_strlen($title)+1;
 
-			// left arrow
-			elseif ($in=="\033\133\104")
+			elseif ($in==special_keys['arr_right'])
+				$cursor = min( mb_strlen($title)+1, $cursor+1);
+
+			elseif ($in==special_keys['arr_left'])
 				$cursor = max(1, $cursor-1);
 
-			// ctrl+left and shift+left
-			elseif ($in=="\033\133\061\073\065\104" || $in=="\033\133\061\073\062\104")
+			elseif ($in==special_keys['ctrl_arr_left'] || $in==special_keys['shift_arr_left'] || $in==special_keys['meta_arr_left'])
 				$cursor =
 					$cursor < 3
 					? 1
@@ -1453,8 +1755,7 @@ function magic_readline(&$mm, $title)
 							)
 						);
 
-			// ctrl+right and shift+right
-			elseif ($in=="\033\133\061\073\065\103" || $in=="\033\133\061\073\062\103")
+			elseif ($in==special_keys['ctrl_arr_right'] || $in==special_keys['shift_arr_right'] || $in==special_keys['meta_arr_right'])
 				$cursor =
 					$cursor > mb_strlen($title) -2
 					? mb_strlen($title) + 1
@@ -1468,8 +1769,8 @@ function magic_readline(&$mm, $title)
 							)
 						);
 
-			// ctrl+backspace
-			elseif ($in=="\010")
+			// ctrl+backspace, meta+backspace, or alt+backspace
+			elseif ($in==special_keys['ctrl_back_space'] || $in==special_keys['meta_back_space'] || $in==special_keys['ctrl_w'])
 			{
 				$from = 
 					max
@@ -1494,8 +1795,7 @@ function magic_readline(&$mm, $title)
 				$cursor = $from+1+($from>0);
 			}
 
-			// backspace
-			elseif ($in=="\177")
+			elseif ($in==special_keys['back_space'])
 			{
 				if ($cursor>1)
 				{
@@ -1515,8 +1815,7 @@ function magic_readline(&$mm, $title)
 				}
 			}
 
-			// ctrl+delete
-			elseif ($in=="\033\133\63\073\065\176")
+			elseif ($in==special_keys['ctrl_del'])
 			{
 				$len = mb_strlen($title);
 				$from = 
@@ -1539,8 +1838,7 @@ function magic_readline(&$mm, $title)
 				;
 			}
 
-			// delete
-			elseif ($in=="\033\133\063\176")
+			elseif ($in==special_keys['del'])
 			{
 				$title =
 					mb_substr
@@ -1556,12 +1854,10 @@ function magic_readline(&$mm, $title)
 					);
 			}
 
-			// enter
-			elseif ($in=="\012")
+			elseif ($in==special_keys['enter'])
 				return trim($title);
 
-			// ctrl+v
-			elseif ($in==ctrl_v)
+			elseif ($in==special_keys['ctrl_v'])
 			{
 				$content =
 					trim
@@ -1595,7 +1891,8 @@ function magic_readline(&$mm, $title)
 			// normal characters
 			else
 			{
-				if ($in=="\011") $in='  ';
+				if ($in==special_keys['tab'])
+					$in='  ';
 
 				$title =
 					mb_substr
@@ -1633,7 +1930,10 @@ function magic_readline(&$mm, $title)
 function show_line(&$mm, $title, $cursor, $shift)
 {
 	$output  = mb_substr($title,$shift,$mm['terminal_width']-1);
-	$output .= str_repeat( ' ' ,$mm['terminal_width'] - mb_strlen($output) );
+
+	$output_len = mb_strwidth($output);
+	if ($mm['terminal_width'] > $output_len)
+		$output .= str_repeat( ' ' ,$mm['terminal_width'] - mb_strwidth($output) );
 
 	// showing the cursor
 	$output =
@@ -1670,8 +1970,19 @@ function show_line(&$mm, $title, $cursor, $shift)
 // }}}
 // {{{ edit node
 
-function edit_node(&$mm, $rewrite = false)
+function edit_node_append()
 {
+	edit_node(false);
+}
+
+function edit_node_replace()
+{
+	edit_node(true);
+}
+
+function edit_node($rewrite = false)
+{
+	global $mm;
 	$title = $rewrite ? '' : $mm['nodes'][ $mm['active_node'] ]['title'];
 
 	if
@@ -1696,9 +2007,8 @@ function edit_node(&$mm, $rewrite = false)
 		&& $mm['nodes'][ $mm['active_node'] ]['is_leaf']
 	)
 	{
-		delete_node($mm, false, true);
+		delete_node_vh($mm, false, true);
 		push_change($mm);
-		$mm['modified'] = true;
 		build_map($mm);
 		display($mm);
 		return;
@@ -1714,7 +2024,6 @@ function edit_node(&$mm, $rewrite = false)
 	$mm['nodes'][ $mm['active_node'] ]['title'] = $output;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	build_map($mm);
 	display($mm);
@@ -1724,8 +2033,23 @@ function edit_node(&$mm, $rewrite = false)
 // }}}
 // {{{ center active node
 
-function center_active_node(&$mm, $only_vertically = false)
+function center_active_node()
 {
+	global $mm;
+	center_active_node_vh(false);
+	display($mm);
+}
+
+function toggle_center_lock()
+{
+	global $mm;
+	$mm['center_lock'] = !$mm['center_lock'];
+	display($mm);
+}
+
+function center_active_node_vh($only_vertically = false)
+{
+	global $mm;
 	$node = $mm['nodes'][ $mm['active_node'] ];
 
 	$midx = $node['w']/2 + $node['x'];
@@ -1741,15 +2065,34 @@ function center_active_node(&$mm, $only_vertically = false)
 // }}}
 // {{{ goto's
 
-function go_to_root(&$mm)
+function go_to_root()
 {
+	global $mm;
 	$mm['active_node']=$mm['root_id'];
 	display($mm, true);
 }
 
-
-function go_to_top(&$mm)
+function go_up()
 {
+	global $mm;
+	change_active_node($mm,0,-1);
+}
+
+function go_down()
+{
+	global $mm;
+	change_active_node($mm,0,1);
+}
+
+function go_left()
+{
+	global $mm;
+	change_active_node($mm,-1,0);
+}
+
+function go_to_top()
+{
+	global $mm;
 	$yid = 0;
 	$y = $mm['map_height'];
 
@@ -1765,8 +2108,16 @@ function go_to_top(&$mm)
 }
 
 
-function go_to_bottom(&$mm)
+function go_right()
 {
+	global $mm;
+	change_active_node($mm,1,0);
+}
+
+
+function go_to_bottom()
+{
+	global $mm;
 	$yid = 0;
 	$y = 0;
 
@@ -1783,10 +2134,63 @@ function go_to_bottom(&$mm)
 
 
 // }}}
+// {{{ help
+
+function help()
+{
+
+	global $mm;
+	global $keybindings;
+
+	$keynames = array_flip(special_keys);
+
+	$commands = [];
+	foreach ($keybindings as $key => $command)
+		$commands[$command][] = ( $keynames[$key] ?? $key );
+
+	$output = [];
+	foreach ($commands as $command => $keys)
+		$output[] =
+		str_pad($command.' ',32,'.',STR_PAD_RIGHT)
+		.' '
+		.implode(', ',$keys);
+
+	sort($output);
+
+	$breakpoint = floor((count($output)-1)/2);
+
+	for ($i=0 ; $i<=$breakpoint ; $i++)
+		echo
+			' '
+			.str_pad($output[$i],56,' ',STR_PAD_RIGHT)
+			.
+			($output[$i+$breakpoint+1] ?? '')
+			."\n"
+		;
+	echo "\n";
+
+	message($mm, "Press any key to exit this help screen.");
+
+	while (true)
+	{
+		usleep(20000);
+		$in = fread(STDIN, 16);
+		if ($in != '')
+			break;
+	}
+
+	display($mm);
+
+}
+
+
+// }}}
 // {{{ search
 
-function search(&$mm)
+function search()
 {
+	global $mm;
+
 	$mm['query'] = magic_readline($mm,'');
 
 	if (empty($mm['query']))
@@ -1795,13 +2199,15 @@ function search(&$mm)
 		return;
 	}
 
-	if (!next_search_result($mm))
-		previous_search_result($mm);
+	if (!next_search_result())
+		previous_search_result();
 }
 
 
-function previous_search_result(&$mm)
+function previous_search_result()
 {
+	global $mm;
+
 	$cy
 		= $mm['nodes'][ $mm['active_node'] ]['y']
 		+ $mm['nodes'][ $mm['active_node'] ]['yo']
@@ -1839,8 +2245,10 @@ function previous_search_result(&$mm)
 }
 
 
-function next_search_result(&$mm)
+function next_search_result()
 {
+	global $mm;
+
 	$cy
 		= $mm['nodes'][ $mm['active_node'] ]['y']
 		+ $mm['nodes'][ $mm['active_node'] ]['yo']
@@ -1878,12 +2286,13 @@ function next_search_result(&$mm)
 // }}}
 // {{{ move active node
 
-function move_active_node_down(&$mm)
+function move_node_down()
 {
+	global $mm;
+
 	if ($mm['active_node']==0) return;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
 	$children = [];
@@ -1914,12 +2323,13 @@ function move_active_node_down(&$mm)
 }
 
 
-function move_active_node_up(&$mm)
+function move_node_up()
 {
+	global $mm;
+
 	if ($mm['active_node']==0) return;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
 	$children = [];
@@ -1954,8 +2364,10 @@ function move_active_node_up(&$mm)
 // }}}
 // {{{ export html
 
-function export_html(&$mm)
+function export_html()
 {
+	global $mm;
+
 	if (empty($mm['filename']))
 	{
 		message($mm, "Can't export the map when it doesn't have a file name yet. Save it first.");
@@ -2013,7 +2425,7 @@ function export_html(&$mm)
 
 	fclose($file);
 
-	message($mm, 'Exported as '.$mm['filename'].'.html');
+	message($mm, $mm['filename'].'.html', 'Exported as');
 	copy_to_clipboard($mm, $mm['filename'].'.html');
 	$filename = getenv('PWD').'/'.basename($mm['filename']).'.html';
 
@@ -2068,8 +2480,10 @@ function export_html_node(&$mm, $parent_id)
 // }}}
 // {{{ export text
 
-function export_text(&$mm)
+function export_text()
 {
+	global $mm;
+
 	$output = '';
 	foreach ($mm['map'] as $line)
 		if (rtrim($line) != '')
@@ -2084,7 +2498,22 @@ function export_text(&$mm)
 // }}}
 // {{{ save
 
-function save(&$mm, $new_name = false)
+function save()
+{
+	global $mm;
+	if ($mm['auto_save'])
+		message($mm,'auto_save is enabled and you don\'t need to save manually.');
+	else
+		save_vh($mm, false);
+}
+
+function save_as()
+{
+	global $mm;
+	save_vh($mm, true);
+}
+
+function save_vh(&$mm, $new_name = false)
 {
 	if ($new_name || empty($mm['filename']))
 	{
@@ -2138,27 +2567,34 @@ function save(&$mm, $new_name = false)
 	fclose($file);
 
 	display($mm);
-	message($mm, 'Saved '.$mm['filename']);
+	if (!$mm['auto_save'])
+		message($mm, $mm['filename'], 'Saved');
 }
 
 
 // }}}
 // {{{ message
 
-function message(&$mm, $text)
+function message(&$mm, $body, $prefix='')
 {
 	$mm['terminal_width']  = (int)exec('tput cols');
 	$mm['terminal_height'] = (int)exec('tput lines');
+
+	$extralen = $mm['terminal_width'] - mb_strlen($prefix) - mb_strlen($body) - 2;
+	if ($extralen < 1)
+		$body = '...' . mb_substr($body, -$extralen+4);
 
 	echo
 		"\033["
 		.$mm['terminal_height'] // y
 		.";"
-		.max(0,$mm['terminal_width'] - mb_strlen($text) - 1) //x
+		.max(0,$extralen) //x
 		."f"
 		.$mm['message_color']
 		.' '
-		.$text
+		.$prefix
+		.($prefix=='' ? '' : ' ')
+		.$body
 		.' '
 		.reset_color
 	;
@@ -2170,10 +2606,28 @@ function message(&$mm, $text)
 // }}}
 // {{{ quit
 
-function quit(&$mm)
+function quit()
 {
-	if (($mm['modified'] ?? false) === false) shutdown();
+	global $mm;
+	if (($mm['modified'] ?? false) === false)
+		shutdown();
 	message($mm, "You have unsaved changes. Save them, or use shift+Q to quit without saving.");
+}
+
+
+function quit_with_debug()
+{
+	global $mm;
+	$file = fopen('./h-m-m--debug.txt', "w");
+
+	if ($file!==false)
+	{
+		fwrite($file, serialize($mm));
+		fclose($file);
+		echo "Debug information is written to h-m-m--debug.txt file.";
+	}
+
+	shutdown();
 }
 
 
@@ -2220,11 +2674,17 @@ function push_change(&$mm)
 	array_push($mm['changes'], $mm['nodes']);
 	array_push($mm['change_active_node'], $mm['active_node']);
 	$mm['change_index']++;
+
+	$mm['modified'] = true;
+	if ($mm['auto_save'])
+		save_vh($mm);
 }
 
 
-function undo(&$mm)
+function undo()
 {
+	global $mm;
+
 	if($mm['change_index'] == 0)
 		return;
 
@@ -2237,8 +2697,10 @@ function undo(&$mm)
 }
 
 
-function redo(&$mm)
+function redo()
 {
+	global $mm;
+
 	if(count($mm['changes']) == $mm['change_index'])
 		return;
 
@@ -2366,8 +2828,10 @@ function change_active_node(&$mm, $x, $y)
 // }}}
 // {{{ append
 
-function append(&$mm)
+function append()
 {
+	global $mm;
+
 	$mm['nodes'][ $mm['active_node'] ]['title'] .=
 		' '
 		.str_replace
@@ -2386,9 +2850,22 @@ function append(&$mm)
 // }}}
 // {{{ paste sub-tree
 
+function paste_as_children()
+{
+	global $mm;
+	paste_sub_tree($mm, false);
+}
+
+function paste_as_siblings()
+{
+	global $mm;
+	paste_sub_tree($mm, true);
+}
+
 function paste_sub_tree(&$mm, $as_sibling )
 {
-	if ($as_sibling && $mm['active_node']==$mm['root_id']) return;
+	if ($as_sibling && $mm['active_node']==$mm['root_id'])
+		return;
 
 	if ($as_sibling)
 		$parent_id = $mm['nodes'][ $mm['active_node'] ]['parent'];
@@ -2411,10 +2888,10 @@ function paste_sub_tree(&$mm, $as_sibling )
 		)
 	;
 
-	if ($st==[]) return;
+	if ($st==[])
+		return;
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	$mm['nodes'] += $st;
 
@@ -2466,7 +2943,8 @@ function copy_to_clipboard(&$mm, $text)
 	{
 		case 'os':
 			$clip = popen($mm['os_clipboard']['write'],'wb');
-			if (!isset($clip)) return;
+			if (!isset($clip))
+				return;
 			fwrite($clip,$text);
 			pclose($clip);
 			break;
@@ -2550,9 +3028,17 @@ function load_empty_map(&$mm)
 // }}}
 // {{{ yank
 
-function yank_node(&$mm, $exclude_parent = false )
+function yank_node()
 {
-	copy_to_clipboard($mm, map_to_list($mm, $mm['active_node'], $exclude_parent));
+	global $mm;
+	copy_to_clipboard($mm, map_to_list($mm, $mm['active_node'], false));
+	message($mm, 'Item(s) are copied to the clipboard.');
+}
+
+function yank_children()
+{
+	global $mm;
+	copy_to_clipboard($mm, map_to_list($mm, $mm['active_node'], true));
 	message($mm, 'Item(s) are copied to the clipboard.');
 }
 
@@ -2560,7 +3046,25 @@ function yank_node(&$mm, $exclude_parent = false )
 // }}}
 // {{{ delete
 
-function delete_node(&$mm, $exclude_parent = false, $dont_copy_to_clipboard = false )
+function delete_node()
+{
+	global $mm;
+	delete_node_vh($mm, false, false);
+}
+
+function delete_children()
+{
+	global $mm;
+	delete_node_vh($mm, true, false);
+}
+
+function delete_node_without_clipboard()
+{
+	global $mm;
+	delete_node_vh($mm, false, true);
+}
+
+function delete_node_vh(&$mm, $exclude_parent = false, $dont_copy_to_clipboard = false )
 {
 	if ($mm['active_node']==$mm['root_id'])
 		$exclude_parent = true;
@@ -2569,7 +3073,6 @@ function delete_node(&$mm, $exclude_parent = false, $dont_copy_to_clipboard = fa
 		copy_to_clipboard($mm, map_to_list($mm, $mm['active_node'], $exclude_parent) );
 
 	push_change($mm);
-	$mm['modified'] = true;
 
 	delete_node_internal($mm, $mm['active_node'], $exclude_parent);
 
@@ -2594,7 +3097,7 @@ function delete_node_internal(&$mm, $active_node, $exclude_parent = false )
 
 	// if it's for a sub-tree, then...
 
-	delete_children($mm, $active_node);
+	delete_children_vh($mm, $active_node);
 
 	if ($exclude_parent)
 	{
@@ -2648,11 +3151,11 @@ function delete_node_internal(&$mm, $active_node, $exclude_parent = false )
 }
 
 
-function delete_children(&$mm,$id)
+function delete_children_vh(&$mm,$id)
 {
 	foreach (($mm['nodes'][$id]['children'] ?? []) as $cid)
 	{
-		delete_children($mm, $cid);
+		delete_children_vh($mm, $cid);
 		unset($mm['nodes'][$cid]);
 	}
 }
@@ -2661,8 +3164,9 @@ function delete_children(&$mm,$id)
 // }}}
 // {{{ focus
 
-function toggle_focus(&$mm)
+function toggle_focus_lock()
 {
+	global $mm;
 	$mm['focus_lock'] = !$mm['focus_lock'];
 
 	message($mm, $mm['focus_lock'] ? 'Focus locked' : 'Focus unlocked');
@@ -2672,7 +3176,15 @@ function toggle_focus(&$mm)
 }
 
 
-function focus(&$mm)
+function focus()
+{
+	global $mm;
+	focus_vh($mm);
+	build_map($mm);
+	display($mm,true);
+}
+
+function focus_vh(&$mm)
 {
 	collapse_siblings($mm, $mm['active_node']);
 	expand_siblings($mm, $mm['active_node']);
@@ -2682,13 +3194,14 @@ function focus(&$mm)
 // }}}
 // {{{ collapse and expand
 
-function expand_all(&$mm)
+function expand_all()
 {
+	global $mm;
 	foreach ($mm['nodes'] as $id=>$node)
 		$mm['nodes'][$id]['collapsed'] = false;
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
@@ -2719,8 +3232,10 @@ function expand_siblings(&$mm, $id)
 }
 
 
-function collapse_other_branches(&$mm)
+function collapse_other_branches()
 {
+	global $mm;
+
 	if ($mm['active_node'] == $mm['root_id'])
 		return;
 
@@ -2731,20 +3246,22 @@ function collapse_other_branches(&$mm)
 			$mm['nodes'][$bid]['collapsed'] = true;
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
 
-function collapse_inner(&$mm)
+function collapse_inner()
 {
+	global $mm;
+
 	foreach ($mm['nodes'][ $mm['active_node'] ]['children'] as $cid)
 		$mm['nodes'][$cid]['collapsed'] = true;
 
 	$mm['nodes'][ $mm['active_node'] ]['collapsed'] = false;
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
@@ -2758,8 +3275,10 @@ function find_branch(&$mm, $cid)
 }
 
 
-function collapse_all(&$mm)
+function collapse_all()
 {
+	global $mm;
+
 	foreach ($mm['nodes'] as $id=>$node)
 		if (!$node['is_leaf'] && $id!=0 && $id!=$mm['root_id'])
 			$mm['nodes'][$id]['collapsed'] = true;
@@ -2767,19 +3286,21 @@ function collapse_all(&$mm)
 	$mm['active_node'] = $mm['root_id'];
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
 
-function collapse_all_children(&$mm)
+function collapse_children()
 {
+	global $mm;
+
 	foreach ($mm['nodes'][ $mm['active_node'] ]['children'] as $cid)
 		if (!$mm['nodes'][$cid]['is_leaf'])
 			$mm['nodes'][$cid]['collapsed'] = true;
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
@@ -2798,6 +3319,15 @@ function collapse(&$mm, $id, $keep)
 	}
 }
 
+function collapse_level_1() { global $mm; collapse_level($mm, 1); }
+function collapse_level_2() { global $mm; collapse_level($mm, 2); }
+function collapse_level_3() { global $mm; collapse_level($mm, 3); }
+function collapse_level_4() { global $mm; collapse_level($mm, 4); }
+function collapse_level_5() { global $mm; collapse_level($mm, 5); }
+function collapse_level_6() { global $mm; collapse_level($mm, 6); }
+function collapse_level_7() { global $mm; collapse_level($mm, 7); }
+function collapse_level_8() { global $mm; collapse_level($mm, 8); }
+function collapse_level_9() { global $mm; collapse_level($mm, 9); }
 
 function collapse_level(&$mm, $level, $no_display = false)
 {
@@ -2822,7 +3352,7 @@ function collapse_level(&$mm, $level, $no_display = false)
 	if ($no_display) return;
 
 	build_map($mm);
-	center_active_node($mm);
+	center_active_node_vh();
 	display($mm);
 }
 
@@ -2834,12 +3364,12 @@ function display(&$mm, $force_center = false)
 {
 	if ($mm['focus_lock'])
 	{
-		focus($mm);
+		focus_vh($mm);
 		build_map($mm);
 	}
 
 	if ($mm['center_lock'] || $force_center)
-		center_active_node($mm);
+		center_active_node_vh();
 	else
 		move_window($mm);
 
@@ -2855,14 +3385,14 @@ function display(&$mm, $force_center = false)
 		max
 		(
 			 0
-			,$mm['nodes'][ $mm['active_node'] ]['x']
+			,$mm['nodes'][ $mm['active_node'] ]['x'] + $mm['nodes'][ $mm['active_node'] ]['xo']
 			-1
 			-$mm['viewport_left']
 		)
 	;
 
 	$x2
-		= $mm['nodes'][ $mm['active_node'] ]['w']
+		= $mm['nodes'][ $mm['active_node'] ]['wl']
 		+ $x1
 		+ 2
 		- ($mm['active_node']==0 && left_padding==0)
@@ -2899,6 +3429,12 @@ function display(&$mm, $force_center = false)
 			;
 		else
 			$line = $blank;
+
+
+		// ensuring that the line is long enough even if the map line is
+		// shorter than the terminal width
+		if (mb_strwidth($line) < $mm['terminal_width'])
+			$line .= str_repeat(' ', $mm['terminal_width'] - mb_strwidth($line));
 
 		// this one really depends on (x,y), but after this, the
 		// coordinates are not reliable anymore because of the
@@ -2967,6 +3503,16 @@ function display(&$mm, $force_center = false)
 			)
 		;
 
+		// styling "(?)
+
+		$line =
+			str_replace
+			(
+				 '(?)'
+				,$mm['doubt_color'].'(?)'.default_color
+				,$line
+			);
+
 		// styling "???"
 
 		$line =
@@ -3008,12 +3554,11 @@ function display(&$mm, $force_center = false)
 	if ($mm['show_logo'])
 	{
 		$ll = $mm['terminal_width'] - 14;
-		echo "\033[1;${ll}f\033[38;5;237m ┌────────────┐ ";
-		echo "\033[2;${ll}f\033[38;5;237m │     ╭─ m   │ ";
-		echo "\033[3;${ll}f\033[38;5;237m │ h ──┤      │ ";
-		echo "\033[4;${ll}f\033[38;5;237m │     ╰─── m │ ";
-		echo "\033[5;${ll}f\033[38;5;237m └────────────┘ ";
-		$mm['show_logo'] = false;
+		echo "\033[1;{$ll}f\033[38;5;237m ┌────────────┐ ";
+		echo "\033[2;{$ll}f\033[38;5;237m │     ╭─ m   │ ";
+		echo "\033[3;{$ll}f\033[38;5;237m │ h ──┤      │ ";
+		echo "\033[4;{$ll}f\033[38;5;237m │     ╰─── m │ ";
+		echo "\033[5;{$ll}f\033[38;5;237m └────────────┘ ";
 	}
 
 }
@@ -3026,12 +3571,17 @@ function mmput(&$mm,$x,$y,$s)
 	$mm['map'][$y]
 		= mb_substr( $mm['map'][$y], 0, $x)
 		. $s
-		. mb_substr( $mm['map'][$y], $x + mb_strlen($s) );
+		. mb_substr( $mm['map'][$y], $x + mb_strwidth($s) );
 }
 
 
 // }}}
 // {{{ rank
+
+function increase_positive_rank() { global $mm; rank($mm, +1,  0); }
+function decrease_positive_rank() { global $mm; rank($mm, -1,  0); }
+function increase_negative_rank() { global $mm; rank($mm,  0, +1); }
+function decrease_negative_rank() { global $mm; rank($mm,  0, -1); }
 
 function rank(&$mm, $add_positive, $add_negative)
 {
@@ -3057,7 +3607,6 @@ function rank(&$mm, $add_positive, $add_negative)
 	;
 
 	push_change($mm);
-	$mm['modified'] = true;
 	build_map($mm);
 	display($mm);
 }
@@ -3066,8 +3615,9 @@ function rank(&$mm, $add_positive, $add_negative)
 // }}}
 // {{{ open link
 
-function open_link(&$mm)
+function open_link()
 {
+	global $mm;
 	message($mm,'Opening the node with xdg-open...');
 	exec('xdg-open "'.$mm['nodes'][ $mm['active_node'] ]['title'].'" >/dev/null 2>&1 &', $output, $result);
 	display($mm);
@@ -3077,8 +3627,10 @@ function open_link(&$mm)
 // }}}
 // {{{ sort
 
-function sort_siblings(&$mm)
+function sort_siblings()
 {
+	global $mm;
+
 	if ($mm['active_node'] <= $mm['root_id'])
 		return;
 
@@ -3116,7 +3668,6 @@ function sort_siblings(&$mm)
 	$mm['nodes'][ $mm['nodes'][ $mm['active_node'] ]['parent'] ]['children'] = $siblings;
 
 	push_change($mm);
-	$mm['modified'] = true;
 	build_map($mm);
 	display($mm);
 }
@@ -3127,6 +3678,7 @@ function sort_siblings(&$mm)
 
 function monitor_key_presses(&$mm)
 {
+	global $keybindings;
 	stream_set_blocking(STDIN,false);
 
 	while(true)
@@ -3137,128 +3689,16 @@ function monitor_key_presses(&$mm)
 		if (empty($in))
 			continue;
 
-		switch ($in)
+		if (isset($keybindings[$in]))
+			call_user_func($keybindings[$in]);
+
+		if ($mm['echo_keys'])
 		{
-			case 'a':       edit_node($mm); break;
-			case 'A':       edit_node($mm, true); break;
-
-			case 'b':       expand_all($mm); break;
-
-			case 'c':       { center_active_node($mm); display($mm); } break;
-			case 'C':       { $mm['center_lock'] = !$mm['center_lock']; display($mm); } break;
-			case ctrl_c:    quit($mm); break;
-
-			case 'd':       delete_node($mm); break;
-			case 'D':       delete_node($mm, true); break;
-			case del:       delete_node($mm, false, true); break;
-
-			case 'e':       edit_node($mm); break;
-			case 'E':       edit_node($mm, true); break;
-
-			case 'f':       { focus($mm); build_map($mm); display($mm,true); } break;
-			case 'F':       toggle_focus($mm); break;
-
-			case 'g':       go_to_top($mm); break;
-			case 'G':       go_to_bottom($mm); break;
-
-			case 'h':       change_active_node($mm, -1,0); break;
-			case 'H':       toggle_hide($mm); break;
-			case ctrl_h:    toggle_show_hidden($mm); break;
-
-			case 'i':       edit_node($mm); break;
-			case 'I':       edit_node($mm, true); break;
-
-			case 'j':       change_active_node($mm, 0,1); break;
-			case 'J':       move_active_node_down($mm); break;
-
-			case 'k':       change_active_node($mm, 0,-1); break;
-			case 'K':       move_active_node_up($mm); break;
-
-			case 'l':       change_active_node($mm, 1,0); break;
-
-			case 'm':       go_to_root($mm); break;
-			case '~':       go_to_root($mm); break;
-
-			case 'n':       next_search_result($mm); break;
-			case 'N':       previous_search_result($mm); break;
-
-			case ctrl_o:    open_link($mm); break;
-			case 'o':       insert_new_node($mm, insert_sibling); break;
-			case 'O':       insert_new_node($mm, insert_child); break;
-
-			case 'p':       paste_sub_tree($mm, false); break;
-			case 'P':       paste_sub_tree($mm, true); break;
-			case ctrl_p:    append($mm); break;
-
-			case 'q':       quit($mm); break;
-			case 'Q':       shutdown(); break;
-
-			case ctrl_r:    redo($mm); break;
-
-			case 'r':       collapse_other_branches($mm); break;
-			case 'R':       collapse_inner($mm); break;
-
-			case 's':       save($mm); break;
-			case 'S':       save($mm, true); break;
-
-			case 't':       toggle_symbol($mm); break;
-			case 'T':       sort_siblings($mm); break;
-			case '#':       toggle_numbers($mm); break;
-
-			case 'u':       undo($mm); break;
-
-			case 'v':       collapse_all($mm); break;
-			case 'V':       collapse_all_children($mm); break;
-
-			case 'w':       change_max_node_width($mm, width_change_factor);   break;
-			case 'W':       change_max_node_width($mm, 1/width_change_factor); break;
-
-			case 'x':       export_html($mm); break;
-			case 'X':       export_text($mm); break;
-
-			case 'y':       yank_node($mm); break;
-			case 'Y':       yank_node($mm, true); break;
-
-			case 'Z':       change_line_spacing($mm, +1); break;
-			case 'z':       change_line_spacing($mm, -1); break;
-
-			case arr_down:  change_active_node($mm,  0,+1); break;
-			case arr_right: change_active_node($mm, +1, 0); break;
-			case arr_up:    change_active_node($mm,  0,-1); break;
-			case arr_left:  change_active_node($mm, -1, 0); break;
-
-			case '1':       collapse_level($mm, 1); break;
-			case '2':       collapse_level($mm, 2); break;
-			case '3':       collapse_level($mm, 3); break;
-			case '4':       collapse_level($mm, 4); break;
-			case '5':       collapse_level($mm, 5); break;
-			case '6':       collapse_level($mm, 6); break;
-			case '7':       collapse_level($mm, 7); break;
-			case '8':       collapse_level($mm, 8); break;
-			case '9':       collapse_level($mm, 9); break;
-
-			case ' ':       toggle_node($mm); break;
-
-			case '|':       toggle_align($mm); break;
-
-			case '/':       search($mm); break;
-			case '?':       search($mm); break;
-			case ctrl_f:    search($mm); break;
-
-			case '=':       rank($mm, +1, 0); break;
-			case '+':       rank($mm, -1, 0); break;
-			case '-':       rank($mm,  0,+1); break;
-			case '_':       rank($mm,  0,-1); break;
-
-			case "\n":      insert_new_node($mm, insert_sibling); break;
-			case "\t":      insert_new_node($mm, insert_child); break;
+			echo "\033[1;1f";
+			for ($i=0; $i<strlen($in); $i++)
+			  echo base_convert(ord($in[$i]),10,8).' ';
+			echo '                    ';
 		}
-
-		// uncomment the following to discover the escape codes:
-		// echo "\033[1;1f";
-		// for ($i=0; $i<strlen($in); $i++)
-		//   echo base_convert(ord($in[$i]),10,8).' ';
-		// echo '                    ';
 	}
 }
 
@@ -3283,6 +3723,7 @@ load_file($mm);
 collapse_all($mm);
 collapse_level($mm, $mm['initial_depth'], false);
 
+$mm['show_logo'] = false;
 monitor_key_presses($mm);
 
 // }}}

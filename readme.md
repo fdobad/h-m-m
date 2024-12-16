@@ -5,7 +5,7 @@
 ![screenshot](screenshot.png)
 
 
-# Key bindings
+# Default key bindings
 
 Adding, removing, and editing nodes:
 
@@ -22,7 +22,6 @@ Adding, removing, and editing nodes:
 * `e`, `i`, or `a` - edits the active node
 * `E`, `I`, or `A` - edits the active node, ignoring the existing text
 * `u` - undo
-* `Ctrl+r` - redo
 
 Marks:
 
@@ -72,7 +71,7 @@ Collapsing and expanding:
 
 Search:
 
-* `/`, `?`, or `Ctrl+f` - searches for a phrase
+* `/` or `Ctrl+f` - searches for a phrase
 * `n` - goes to the next search result
 * `N` - goes to the previous search result
 
@@ -86,6 +85,10 @@ Save, export, quit, etc.:
 * `Q` - quits, ignoring the changes
 * `Ctrl+o` - open the active node as a file or URL using xdg-open
 
+Misc:
+
+* `?` - show the key bindings
+
 In the text editor:
 
 * `↓` - moves the cursor to the end of the line
@@ -97,10 +100,17 @@ In the text editor:
 * `Delete` - deletes character
 * `Ctrl+Delete` - deletes word
 * `Backspace` - deletes previous character
-* `ctrl+Backspace` - deletes previous word
+* `ctrl+Backspace`, `ctrl+w` - deletes previous word
 * `Ctrl+v` or `Ctrl+Shift+v` - paste
 * `Esc` - cancels editing
 * `Enter` - wanna guess? ;)
+
+Other than the text editor key bindings, you can change all in your config file.
+
+
+## Rankings
+
+When working with a group of people in a workshop, sometimes you need to decide on a subtopic (i.e., selecting one of the proposed items). After discussing them, people can vote "yes" or "no" for each item. You can add a positive point for each "yes" (`=`) and a negative one for each "no" (`-`). In the end, you can press shift+t to sort them and see the highest-ranking choices on the top.
 
 
 # Configuration 
@@ -124,10 +134,98 @@ The following are the settings in h-m-m:
 	post_export_command = ""
 	symbol1 = ✓
 	symbol2 = ✗
+	auto_save = false
 
 The colors are ASCII escape codes. 
 
-You have 3 different ways of setting those values: 
+You can also change key bindings with a `bind x = command` syntax. The following are the defaults:
+
+    bind   a                  =   edit_node_append
+    bind   A                  =   edit_node_replace
+    bind   b                  =   expand_all
+    bind   c                  =   center_active_node
+    bind   C                  =   toggle_center_lock
+    bind   ctrl_c             =   quit
+    bind   d                  =   delete_node
+    bind   D                  =   delete_children
+    bind   del                =   delete_node_without_clipboard
+    bind   e                  =   edit_node_append
+    bind   E                  =   edit_node_replace
+    bind   f                  =   focus
+    bind   F                  =   toggle_focus_lock
+    bind   g                  =   go_to_top
+    bind   G                  =   go_to_bottom
+    bind   h                  =   go_left
+    bind   H                  =   toggle_hide
+    bind   ctrl_h             =   toggle_show_hidden
+    bind   i                  =   edit_node_append
+    bind   I                  =   edit_node_replace
+    bind   j                  =   go_down
+    bind   J                  =   move_node_down
+    bind   k                  =   go_up
+    bind   K                  =   move_node_up
+    bind   l                  =   go_right
+    bind   m                  =   go_to_root
+    bind   ~                  =   go_to_root
+    bind   n                  =   next_search_result
+    bind   N                  =   previous_search_result
+    bind   o                  =   insert_new_sibling
+    bind   O                  =   insert_new_child
+    bind   ctrl_o             =   open_link
+    bind   p                  =   paste_as_children
+    bind   P                  =   paste_as_siblings
+    bind   ctrl_p             =   append
+    bind   q                  =   quit
+    bind   Q                  =   shutdown
+    bind   ctrl_q             =   quit_with_debug
+    bind   r                  =   collapse_other_branches
+    bind   R                  =   collapse_inner
+    bind   s                  =   save
+    bind   S                  =   save_as
+    bind   t                  =   toggle_symbol
+    bind   T                  =   sort_siblings
+    bind   #                  =   toggle_numbers
+    bind   u                  =   undo
+    bind   v                  =   collapse_all
+    bind   V                  =   collapse_children
+    bind   w                  =   increase_text_width
+    bind   W                  =   decrease_text_width
+    bind   x                  =   export_html
+    bind   X                  =   export_text
+    bind   y                  =   yank_node
+    bind   Y                  =   yank_children
+    bind   z                  =   decrease_line_spacing
+    bind   Z                  =   increase_line_spacing
+    bind   enter              =   insert_new_sibling
+    bind   tab                =   insert_new_child
+    bind   space              =   toggle_node
+    bind   arr_down           =   go_down
+    bind   arr_up             =   go_up
+    bind   arr_right          =   go_right
+    bind   arr_left           =   go_left
+    bind   1                  =   collapse_level_1
+    bind   2                  =   collapse_level_2
+    bind   3                  =   collapse_level_3
+    bind   4                  =   collapse_level_4
+    bind   5                  =   collapse_level_5
+    bind   6                  =   collapse_level_6
+    bind   7                  =   collapse_level_7
+    bind   8                  =   collapse_level_8
+    bind   9                  =   collapse_level_9
+    bind   |                  =   toggle_align
+    bind   ?                  =   help
+    bind   /                  =   search
+    bind   ctrl_f             =   search
+    bind   equal              =   increase_positive_rank
+    bind   +                  =   decrease_positive_rank
+    bind   -                  =   increase_negative_rank
+    bind   _                  =   decrease_negative_rank
+
+Keys can be `x`, `X` (shift+x), `ctrl_x`, `alt_x`, or special keys: `arr_down`, `arr_left`, `arr_right`, `arr_up`, `back_space`, `ctrl_arr_left`, `ctrl_arr_right`, `ctrl_back_space`, `ctrl_del`, `del`, `end`, `enter`, `equal`, `esc`, `home`, `shift_arr_left`, `shift_arr_right`, `space`, `tab` 
+
+Note: Not every possible key is defined because I'm going to replace this whole system with one that supports key sequences.
+
+Key bindings can only be set in a config file. There are 3 ways of changing settings:
 
 1. Pass them as arguments when running the program; e.g., `h-m-m --focus-lock=true --line-spacing=0 filename`
 1. Set them as environment variables with `hmm_` as prefix; e.g., `hmm_line_spacing=0`
@@ -138,7 +236,7 @@ You have 3 different ways of setting those values:
 
 Both underscores and dashes are accepted for the setting keys.
 
-When multiple values exists, the highest priority goes to the command line arguments and the lowest to the config file. 
+When multiple values exist, the highest priority goes to the command line arguments and the lowest to the config file. 
 
 
 # Clipboard
@@ -190,11 +288,11 @@ You also need to have the following installed for h-m-m to work:
 * php
   * either php 8, or
   * older versions of php along with the `mbstring` package (e.g., `php7.2-mbstring`)
-* `xclip`, `xsel`, or `wl-clipboard` in Linux. (Windows and Mac don't need it)
+* `xclip`, `xsel`, `wl-clipboard`, or `klipper` in Linux. (Windows and Mac don't need it)
 
-After downloading or cloning, you can run `php h-m-m` in your terminal to run the program with a blank map or `php h-m-m filename` to open an existing file. If you don't already have a php interpreter installed, you would need to install it as well. Note: You don't need to set up a "web server" to run it because it's not a web application, but rather a terminal application that works like those written in Python, Bash, etc. 
- 
-Optionally, you can make the file executable by running the `chmod +x h-m-m` in your terminal, and afterward, you can run it as `h-m-m filename` (assuming that **h-m-m** is in your path). 
+After downloading or cloning, you can run `php h-m-m` in your terminal to run the program with a blank map or `php h-m-m filename` to open an existing file. Note: You don't need to set up a "web server" to run it because it's not a web application, but rather a terminal application that works like those written in Python, Bash, etc. 
+
+Optionally, you can make the file executable by running the `chmod +x h-m-m` in your terminal, and afterward, you can run it as `h-m-m filename` (assuming that **h-m-m** is in your path).
 
 
 ## 2. Debian Stable
@@ -223,11 +321,9 @@ You can run the following command to install h-m-m:
 wget -q -O - 'https://raw.githubusercontent.com/nadrad/h-m-m/main/install.sh' | sh
 ```
 
-This command downloads and runs the install.sh script, which it turn downloads h-m-m, copies it to `/usr/local/bin`, checks the dependencies, and makes it executable. 
+This command downloads and runs the install.sh script, which in turn downloads h-m-m, copies it to `/usr/local/bin`, checks the dependencies, and makes it executable. 
 
 After installing, you can run `h-m-m` from anywhere in your terminal to run the application with an empty map, or `h-m-m filename` to open an existing file.
-
-Note: It probably works in a Mac, but I'm not completely sure; so, [let me know](https://github.com/nadrad/h-m-m/issues/27).
 
 
 ## 4. Installation with Docker
@@ -243,16 +339,9 @@ docker run --rm -it -v $(pwd):/app/ hmm
 ```
 
 
-# Compatibility 
-
-I think the method I've used in this program to interact with the terminal emulator is general and standard enough to be cross-platform, but I've developed it in Linux and I don't have any other operating system to test it on. If you run into a problem in Windows or Mac, let me know, especially if you know how to fix it, and I'll try to make it work. 
-
-Update: There's an [open issue](https://github.com/nadrad/h-m-m/issues/29) for Windows, waiting for contributors!
-
-
 # Feedback
 
-Programming is not my career, but rather a hobby, and I developed **h-m-m** because I wanted to have something like this and couldn't find one. Therefore, what I've done here may have a lot of room for improvement. If you see an embarrassing problem in the program or have an idea for improvement, feel free to contact me; I'd be happy to receive your feedback.
+Programming is not my career, but rather a hobby, and I developed **h-m-m** because I wanted to have something like this application and couldn't find one. Therefore, what I've done here may have a lot of room for improvement. If you see an embarrassing problem in the program or have an idea for improvement, feel free to contact me; I'd be happy to receive your feedback.
 
-Why php? It's simple: I only have a rusty knowledge of Pascal and a little familiarity with php. I thought about learning another language for this project (Haskell and Go were my top choices), but I didn't have time to do it. I'll probably do it later and convert it into a language I can compile :)
+Why php? It's simple: I only have a rusty knowledge of Pascal and a little familiarity with php. I thought about learning another language for this project (Nim is my top choice at this moment), but I didn't have time to do it. I'll probably do it later and convert it into a language I can compile :)
 
