@@ -316,17 +316,18 @@ After installing, you can run `h-m-m` from anywhere in your terminal to run the 
 
 ## 4. Installation with Docker
 
-It's also possible to execute `h-m-m` through docker (or podman):
+It's also possible to execute `h-m-m` through podman (or docker):
 
 ```sh
 # Build the image
-docker build -t hmm .
+podman build -t hmm .
 
-# Run it (mount $pwd for file access, X11 & DISLAY for clipboard access)
-docker run --rm -it -v $(pwd):/app/ -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY hmm
+# make it an alias
+# (.X11-unix & DISLAY for clipboard access)
+alias hmm='podman run --rm -it -v $(pwd):/app/ -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY hmm'
 
-# Convinience
-alias hmm='docker run --rm -it -v $(pwd):/app/ -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY hmm'
+# use
+hmm ./filename
 ```
 
 
